@@ -13,6 +13,8 @@ obj/
 *.apk
 *.aab
 *.keystore
+# ...exceto a assinatura de TESTE do projeto (chave descartável, só para sideload)
+!build/beurergarmin-test.keystore
 
 # Sistema
 .DS_Store

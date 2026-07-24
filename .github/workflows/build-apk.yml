@@ -33,14 +33,18 @@ jobs:
       - name: Restaurar dependências
         run: dotnet restore src/BeurerGarmin/BeurerGarmin.csproj
 
-      - name: Montar o APK (Release, completo e autoinstalável)
+      - name: Montar o APK (Release, completo e autoinstalável, assinatura fixa)
         run: >
           dotnet build src/BeurerGarmin/BeurerGarmin.csproj
           -c Release
           -f net10.0-android
           /p:AndroidPackageFormat=apk
           /p:EmbedAssembliesIntoApk=true
-          /p:AndroidKeyStore=false
+          /p:AndroidKeyStore=true
+          /p:AndroidSigningKeyStore=${{ github.workspace }}/build/beurergarmin-test.keystore
+          /p:AndroidSigningStorePass=beurer123
+          /p:AndroidSigningKeyAlias=beurergarmin
+          /p:AndroidSigningKeyPass=beurer123
 
       - name: Localizar o APK gerado
         id: findapk
