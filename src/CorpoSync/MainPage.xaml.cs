@@ -26,6 +26,7 @@ public partial class MainPage : ContentPage
 	List<Perfil> _perfis = new();
 	Perfil? _ativo;
 	bool _scanning;
+	bool _capturaFresca;
 	TaskCompletionSource<byte[]>? _respostaUcp;
 	Medicao _medicao = new();
 
@@ -41,7 +42,6 @@ public partial class MainPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		PerfilStore.GarantirPerfilInicial();
 		CarregarPerfis();
 	}
 
@@ -101,6 +101,7 @@ public partial class MainPage : ContentPage
 		_seen.Clear();
 		_canais.Clear();
 		_medicao = new Medicao();
+		_capturaFresca = false;
 		ResultadoCard.IsVisible = false;
 		Grade.Children.Clear();
 		Grade.RowDefinitions.Clear();
@@ -262,12 +263,39 @@ public partial class MainPage : ContentPage
 		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
 		Log($"DADO {canal}: {Hex(bytes)}");
 
-		if (canal == PESO) _medicao.LerPeso(bytes);
-		else if (canal == COMP) _medicao.LerComposicao(bytes);
+		if (canal == PESO)
+		{
+			// A balança entrega a última pesagem GUARDADA assim que conecta.
+			// Só mostramos se for uma pesagem NOVA (carimbo de hora recente).
+			var tmp = new Medicao();
+			tmp.LerPeso(bytes);
+			bool fresca = !tmp.Quando.HasValue
+				|| (DateTime.Now - tmp.Quando.Value).TotalSeconds <= 90;
 
-		if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
-
-		MainThread.BeginInvokeOnMainThread(MostrarResultado);
+			if (fresca)
+			{
+				if (!_capturaFresca) _medicao = new Medicao();
+				_capturaFresca = true;
+				_medicao.LerPeso(bytes);
+				if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
+				MainThread.BeginInvokeOnMainThread(MostrarResultado);
+			}
+			else
+			{
+				_capturaFresca = false;
+				var hora = tmp.Quando?.ToString("dd/MM HH:mm") ?? "?";
+				MainThread.BeginInvokeOnMainThread(() =>
+				{
+					StatusLabel.Text = $"Recebi a pesagem guardada de {hora}. Suba na balança AGORA para uma nova.";
+				});
+			}
+		}
+		else if (canal == COMP && _capturaFresca)
+		{
+			_medicao.LerComposicao(bytes);
+			if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
+			MainThread.BeginInvokeOnMainThread(MostrarResultado);
+		}
 	}
 
 	void MostrarResultado()
@@ -310,8 +338,8 @@ public partial class MainPage : ContentPage
 			if (col == 0) Grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
 			var tile = new VerticalStackLayout { Spacing = 2 };
-			tile.Children.Add(new Label { Text = itens[k].Item1, FontSize = 12, TextColor = Color.FromArgb("#888888") });
-			tile.Children.Add(new Label { Text = itens[k].Item2, FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#333333") });
+			tile.Children.Add(new Label { Text = itens[k].Item1, FontSize = 12, TextColor = Color.FromArgb("#9E9E9E") });
+			tile.Children.Add(new Label { Text = itens[k].Item2, FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#ECECEC") });
 
 			Grade.Add(tile, col, row);
 		}

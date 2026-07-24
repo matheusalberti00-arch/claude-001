@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CorpoSync.PerfisPage"
              Title="Perfis"
-             BackgroundColor="#F5F7F6">
+             BackgroundColor="#121212">
 
     <Grid RowDefinitions="*,Auto" Padding="16" RowSpacing="12">
 
@@ -11,15 +11,15 @@
                         SelectionChanged="OnSelecionado">
             <CollectionView.EmptyView>
                 <Label Text="Nenhum perfil ainda. Toque em 'Novo perfil'."
-                       TextColor="#777777" HorizontalOptions="Center" Margin="0,40,0,0" />
+                       TextColor="#9E9E9E" HorizontalOptions="Center" Margin="0,40,0,0" />
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Border Stroke="#E0E0E0" StrokeThickness="1" BackgroundColor="White"
+                    <Border Stroke="#2E2E2E" StrokeThickness="1" BackgroundColor="#1E1E1E"
                             Padding="14" Margin="0,0,0,8">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding Nome}" FontSize="17" FontAttributes="Bold" TextColor="#333333" />
-                            <Label Text="{Binding GarminEmail}" FontSize="12" TextColor="#888888" />
+                            <Label Text="{Binding Nome}" FontSize="17" FontAttributes="Bold" TextColor="#ECECEC" />
+                            <Label Text="{Binding GarminEmail}" FontSize="12" TextColor="#9E9E9E" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -27,7 +27,7 @@
         </CollectionView>
 
         <Button Grid.Row="1" Text="Novo perfil" Clicked="OnNovoClicked"
-                BackgroundColor="#2E7D6F" TextColor="White" HeightRequest="52" />
+                BackgroundColor="#2E9E86" TextColor="White" HeightRequest="52" />
 
     </Grid>
 

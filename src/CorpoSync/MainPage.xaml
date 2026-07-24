@@ -3,43 +3,44 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CorpoSync.MainPage"
              Title="CorpoSync"
-             BackgroundColor="#F5F7F6">
+             BackgroundColor="#121212">
 
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="14">
 
             <!-- Perfil ativo -->
-            <Border Stroke="#E0E0E0" StrokeThickness="1" BackgroundColor="White" Padding="12">
+            <Border Stroke="#2E2E2E" StrokeThickness="1" BackgroundColor="#1E1E1E" Padding="12">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Perfil" FontSize="13" TextColor="#777777" />
+                    <Label Text="Perfil" FontSize="13" TextColor="#9E9E9E" />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <Picker x:Name="PerfilPicker" Grid.Column="0" Title="Escolha um perfil"
+                                TextColor="#ECECEC" TitleColor="#9E9E9E" BackgroundColor="#262626"
                                 SelectedIndexChanged="OnPerfilChanged" />
                         <Button Grid.Column="1" Text="Perfis" Clicked="OnPerfisClicked"
-                                BackgroundColor="#EAF3F1" TextColor="#2E7D6F" Padding="14,0" />
+                                BackgroundColor="#24352F" TextColor="#35C99A" Padding="14,0" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
 
             <!-- Botão pesar -->
             <Button x:Name="PesarBtn" Text="Pesar" Clicked="OnPesarClicked"
-                    BackgroundColor="#2E7D6F" TextColor="White" FontSize="18" HeightRequest="56" />
+                    BackgroundColor="#2E9E86" TextColor="White" FontSize="18" HeightRequest="56" />
 
             <Label x:Name="StatusLabel" Text="Escolha o perfil, toque em Pesar e suba na balança."
-                   FontSize="14" TextColor="#444444" />
+                   FontSize="14" TextColor="#BDBDBD" />
 
             <!-- Resultado -->
             <Border x:Name="ResultadoCard" IsVisible="False"
-                    Stroke="#E0E0E0" StrokeThickness="1" BackgroundColor="White" Padding="16">
+                    Stroke="#2E2E2E" StrokeThickness="1" BackgroundColor="#1E1E1E" Padding="16">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="Resultado" FontSize="13" TextColor="#777777" />
+                    <Label Text="Resultado" FontSize="13" TextColor="#9E9E9E" />
 
                     <StackLayout Orientation="Horizontal" Spacing="8">
-                        <Label x:Name="PesoLabel" Text="--" FontSize="44" FontAttributes="Bold" TextColor="#2E7D6F" />
-                        <Label Text="kg" FontSize="20" TextColor="#777777" VerticalOptions="End" Margin="0,0,0,10" />
+                        <Label x:Name="PesoLabel" Text="--" FontSize="44" FontAttributes="Bold" TextColor="#35C99A" />
+                        <Label Text="kg" FontSize="20" TextColor="#9E9E9E" VerticalOptions="End" Margin="0,0,0,10" />
                     </StackLayout>
 
-                    <Label x:Name="QuandoLabel" Text="" FontSize="12" TextColor="#999999" />
+                    <Label x:Name="QuandoLabel" Text="" FontSize="12" TextColor="#9E9E9E" />
 
                     <Grid x:Name="Grade" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12" />
                 </VerticalStackLayout>
@@ -47,11 +48,11 @@
 
             <!-- Detalhes técnicos (para depuração) -->
             <Button Text="Detalhes técnicos" Clicked="OnToggleLog"
-                    BackgroundColor="Transparent" TextColor="#999999" FontSize="12" />
+                    BackgroundColor="Transparent" TextColor="#6E6E6E" FontSize="12" />
             <Border x:Name="LogCard" IsVisible="False"
-                    Stroke="#E0E0E0" StrokeThickness="1" BackgroundColor="White" Padding="10" HeightRequest="240">
+                    Stroke="#2E2E2E" StrokeThickness="1" BackgroundColor="#161616" Padding="10" HeightRequest="240">
                 <ScrollView x:Name="LogScroll">
-                    <Label x:Name="LogLabel" FontFamily="Monospace" FontSize="11" TextColor="#333333" />
+                    <Label x:Name="LogLabel" FontFamily="Monospace" FontSize="11" TextColor="#B8B8B8" />
                 </ScrollView>
             </Border>
 
