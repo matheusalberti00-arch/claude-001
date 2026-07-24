@@ -89,7 +89,10 @@ Proteína, Massa muscular c/ órgãos, Tecido adiposo subcutâneo).
 
 ### Notas técnicas de build (para futuras sessões)
 - Alvo: **net10.0-android** (.NET 8 é EOL nesta data e o runner usa .NET 10).
-- `dotnet workload install maui-android`; build Debug gera APK já assinado (teste).
+- `dotnet workload install maui-android`. **Usar build `-c Release`** para o APK do
+  celular: o Debug usa "fast deployment" e NÃO embute as assemblies, então o APK
+  instalado manualmente abre e fecha na hora (crash). Release + EmbedAssembliesIntoApk=true
+  + AndroidKeyStore=false gera APK completo, assinado com debug key e instalável.
 - `MauiProgram` sem `AddDebug` (API removida no .NET 10);
   `SkipValidateMauiImplicitPackageReferences=true` para silenciar MA002.
 - Workflow só roda em mudanças de `src/**` ou do próprio workflow (docs não disparam build).
