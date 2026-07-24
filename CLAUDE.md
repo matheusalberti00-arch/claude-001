@@ -1,0 +1,72 @@
+# CLAUDE.md — Contexto permanente do projeto
+
+> Este arquivo é a **memória do projeto**. Qualquer sessão do Claude Code deve **ler
+> isto primeiro** e respeitar estas regras, mesmo depois de o app ser fechado e reaberto.
+
+## O que é este projeto
+
+App **Android** que lê a balança de bioimpedância **Beurer BF 451** por Bluetooth (BLE),
+mostra a composição corporal numa tela simples, e envia os dados direto para o
+**Garmin Connect**. Substitui o app oficial Beurer HealthManager para esse fluxo.
+
+Documentos irmãos: **`SPEC.md`** (o que o app faz) e **`PLAN.md`** (etapas de construção).
+Leia os dois antes de trabalhar.
+
+## O usuário
+
+- É **leigo em programação** e depende do Claude para escrever e manter o código.
+- Fala **português**. Toda comunicação deve ser em **português simples, sem jargão**.
+
+## Restrição INEGOCIÁVEL: custo zero
+
+- **Nenhum custo recorrente.** Sem servidor pago, backend na nuvem pago, API paga ou
+  assinatura.
+- Roda **100% no celular**: Bluetooth → balança → cálculo local → envio direto ao Garmin.
+- Distribuição por **APK grátis** (Google Play, taxa única US$25, fica para o futuro).
+- Se qualquer caminho exigir custo, **PARE e avise o usuário antes de seguir.**
+
+## Decisões já tomadas (não reabrir sem o usuário pedir)
+
+- **Tecnologia:** .NET MAUI (C#), espelhando o projeto de referência `mi-scale-exporter`
+  (github.com/lswiderski/mi-scale-exporter).
+- **Reaproveitar da referência:** parte 2 (cálculo de composição) e parte 3 (envio ao
+  Garmin). Escrever nova apenas a parte 1 (leitura BLE da Beurer).
+- **Protocolo Beurer:** basear-se em openScale (github.com/oliexdev/openScale) e
+  ble-scale-sync. Modelos documentados: BF700/710/720/800/105. **O BF 451 NÃO está
+  documentado** — é o maior risco do projeto (só confirma testando na balança real).
+- **Garmin:** login (e-mail + senha) guardado **localmente e protegido no celular**;
+  é o único caminho grátis. Nada de senha em servidor.
+- **Multiusuário:** vários logins do Garmin; a pessoa **escolhe qual** antes de enviar.
+  **Sem histórico de pesagens local** — quem guarda é o Garmin. Cada pesagem = um envio.
+- **Dados:** sempre vêm da balança; o usuário **pode conferir e editar** antes de enviar.
+- **Plataforma:** só Android na v1. Sem iOS.
+
+## Dados: balança → Garmin (todos aceitos pelo Garmin)
+
+peso→`weight` · IMC→`bmi` · %gordura→`percent_fat` · %água→`percent_hydration` ·
+músculo→`muscle_mass` · massa óssea→`bone_mass` · gordura visceral→`visceral_fat_rating` ·
+BMR→`basal_met` · AMR→`active_met` · idade metabólica→`metabolic_age`.
+
+## Como trabalhar (regras de processo)
+
+1. **Não escrever/editar código** enquanto o `PLAN.md` não estiver aprovado pelo usuário.
+2. Seguir o `PLAN.md` **etapa por etapa**. Ao terminar uma etapa, **PARAR**, explicar em
+   linguagem simples o que foi feito e **como testar**, e esperar aprovação antes da próxima.
+3. Diante de qualquer **trade-off**, **explicar as opções em português simples e perguntar**
+   — nunca decidir sozinho.
+4. **Reaproveitar** bibliotecas/exemplos open-source testados em vez de escrever do zero.
+5. Manter uma **rotina/modo de teste da balança** desde cedo (o BF 451 é o ponto incerto);
+   comparar leituras com prints do app oficial Beurer.
+6. Nunca mostrar erro técnico cru ao usuário — **mensagens humanas**.
+
+## Estado atual do projeto
+
+- ✅ Fase de planejamento: SPEC.md e PLAN.md escritos.
+- ⏳ Aguardando aprovação do PLAN.md para iniciar a **Etapa 1** (primeiro código).
+- Branch de trabalho: `claude/beurer-bf451-app-plan-gmfsj5`.
+
+## Referências
+
+- Projeto base: https://github.com/lswiderski/mi-scale-exporter
+- Protocolo Beurer: https://github.com/oliexdev/openScale · https://blescalesync.dev
+- Campos aceitos pelo Garmin: https://github.com/cyberjunky/python-garminconnect
