@@ -8,7 +8,7 @@
 
         <VerticalStackLayout Grid.Row="0" Spacing="2">
             <Label Text="CorpoSync" FontSize="28" FontAttributes="Bold" TextColor="#2E7D6F" />
-            <Label Text="Diagnóstico da balança (Etapa 2)" FontSize="14" TextColor="#555555" />
+            <Label Text="Leitura da balança (Etapa 3)" FontSize="14" TextColor="#555555" />
         </VerticalStackLayout>
 
         <HorizontalStackLayout Grid.Row="1" Spacing="12">

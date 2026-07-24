@@ -69,6 +69,28 @@ Proteína, Massa muscular c/ órgãos, Tecido adiposo subcutâneo).
 - **Atenção de unidade:** balança mostra "Músculos" em **%**, Garmin guarda `muscle_mass`
   em **kg** → decidir conversão na Etapa 4 (provável: % × peso, ou usar valor de massa).
 
+### Mapa BLE do BF451 (lido do aparelho real na Etapa 2 — GATT)
+
+Nome BF451, fabricante "Beurer GmbH", modelo BF451, serial FF03006D840D, bateria 100%,
+relógio (1805/2a2b) já vem certo. É uma balança **padrão** de composição corporal com
+**User Data Service** (reconhece usuário). Serviços/canais:
+- 180a Device Info (2a29/2a24/2a26/2a27/2a28/2a25 = fabricante/modelo/fw/hw/sw/serial).
+- 1805 Current Time: 2a2b [Read,Write,Notify].
+- 181d Weight Scale: 2a9e (Feature)=31-00-00-00; **2a9d Weight [Indicate]**.
+- 181b Body Composition: 2a9b (Feature)=CF-01-00-00; **2a9c Body Comp [Indicate]**.
+- 181c User Data: 2a8c Gender[R/W], 2a85 Nascimento[R/W], 2a8e Altura[R/W],
+  2a9a[R], 2a99 DB-Change[R/W/Notify], **2a9f User Control Point [Write,Indicate]**.
+- ffff (vendor Beurer): fff0[R/W], fff1[W/Notify], fff2[R/W], fff3[R], fff4[W/Notify],
+  fff5[Indicate], fff6[Indicate], fff7[W], fff8[W/Notify].
+
+**Descoberta chave:** só "escutar" NÃO traz dados; a balança mostra "U--/👤?" (não
+atribuiu a um usuário). Precisa do **handshake no 2a9f** (User Control Point): registrar
+usuário (0x01 + código consentimento 2 bytes) → recebe índice; consentir (0x02 + índice +
+código); depois gravar perfil (2a8c sexo, 2a85 nascimento aaaa/mm/dd, 2a8e altura cm) e
+ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
+- Dados do usuário para teste (fixos no código por enquanto): sexo M, nasc 03/01/1996,
+  altura 170 cm. Código de consentimento do app: 0x1717.
+
 ## Como trabalhar (regras de processo)
 
 1. **Não escrever/editar código** enquanto o `PLAN.md` não estiver aprovado pelo usuário.
