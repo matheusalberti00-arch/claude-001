@@ -162,15 +162,29 @@ public partial class MainPage : ContentPage
 }
 
 #if ANDROID
-// Permissões de Bluetooth exigidas pelo Android 12+ (e localização para versões antigas).
+// Permissões de Bluetooth. No Android 12+ (API 31) usa-se "Dispositivos por perto"
+// (BLUETOOTH_SCAN/CONNECT) e NÃO se pede localização. No Android 11 e anteriores,
+// o scan BLE exige localização.
 public class BlePermissions : Permissions.BasePlatformPermission
 {
-	public override (string androidPermission, bool isRuntime)[] RequiredPermissions =>
-		new List<(string, bool)>
+	public override (string androidPermission, bool isRuntime)[] RequiredPermissions
+	{
+		get
 		{
-			(global::Android.Manifest.Permission.BluetoothScan, true),
-			(global::Android.Manifest.Permission.BluetoothConnect, true),
-			(global::Android.Manifest.Permission.AccessFineLocation, true),
-		}.ToArray();
+			var permissoes = new List<(string, bool)>();
+
+			if (OperatingSystem.IsAndroidVersionAtLeast(31))
+			{
+				permissoes.Add((global::Android.Manifest.Permission.BluetoothScan, true));
+				permissoes.Add((global::Android.Manifest.Permission.BluetoothConnect, true));
+			}
+			else
+			{
+				permissoes.Add((global::Android.Manifest.Permission.AccessFineLocation, true));
+			}
+
+			return permissoes.ToArray();
+		}
+	}
 }
 #endif
