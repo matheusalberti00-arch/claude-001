@@ -8,6 +8,7 @@
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
 
 		<!-- Nome e identidade do app -->
 		<ApplicationTitle>Beurer Garmin</ApplicationTitle>
