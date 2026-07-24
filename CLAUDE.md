@@ -41,11 +41,28 @@ Leia os dois antes de trabalhar.
 - **Dados:** sempre vêm da balança; o usuário **pode conferir e editar** antes de enviar.
 - **Plataforma:** só Android na v1. Sem iOS.
 
+## Montagem do APK (build)
+
+- Usuário usa **só o celular** — **sem PC**. APK montado de graça na nuvem via
+  **GitHub Actions** (o projeto já está no GitHub: matheusalberti00-arch/claude-001).
+- Fluxo: Claude envia código → GitHub monta o APK → usuário baixa pelo celular em
+  **Actions/Releases** → instala. Dentro da cota grátis; se chegar perto do limite, avisar.
+
 ## Dados: balança → Garmin (todos aceitos pelo Garmin)
 
 peso→`weight` · IMC→`bmi` · %gordura→`percent_fat` · %água→`percent_hydration` ·
 músculo→`muscle_mass` · massa óssea→`bone_mass` · gordura visceral→`visceral_fat_rating` ·
 BMR→`basal_met` · AMR→`active_met` · idade metabólica→`metabolic_age`.
+
+### Confirmado pelo print do app oficial (BF 451, HealthManager Pro)
+
+O app oficial exibe: Peso 64,9 kg · IMC 22,5 · Massa gorda 14,3% · Água 61,8% ·
+Músculos 43,9% · Ossos 2,9 kg · BMR 1567 kcal · AMR 2899 kcal · Idade metabólica 25 ·
+Gordura visceral 5,0 · (extras sem campo no Garmin: Soft Lean Mass, Lean Body Mass,
+Proteína, Massa muscular c/ órgãos, Tecido adiposo subcutâneo).
+- Os **10 primeiros** vão pro Garmin; os extras **não têm campo** no Garmin e ficam de fora.
+- **Atenção de unidade:** balança mostra "Músculos" em **%**, Garmin guarda `muscle_mass`
+  em **kg** → decidir conversão na Etapa 4 (provável: % × peso, ou usar valor de massa).
 
 ## Como trabalhar (regras de processo)
 
@@ -61,7 +78,9 @@ BMR→`basal_met` · AMR→`active_met` · idade metabólica→`metabolic_age`.
 
 ## Estado atual do projeto
 
-- ✅ Fase de planejamento: SPEC.md e PLAN.md escritos.
+- ✅ Fase de planejamento: SPEC.md e PLAN.md escritos; PLAN revisado para build via
+  GitHub Actions (usuário 100% no celular).
+- ✅ Print do app oficial recebido e valores do BF 451 confirmados (ver acima).
 - ⏳ Aguardando aprovação do PLAN.md para iniciar a **Etapa 1** (primeiro código).
 - Branch de trabalho: `claude/beurer-bf451-app-plan-gmfsj5`.
 

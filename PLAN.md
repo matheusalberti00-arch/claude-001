@@ -11,18 +11,36 @@ Legenda de risco: 🟢 tranquilo · 🟡 atenção · 🔴 parte incerta (BF 451
 
 ---
 
+## Como o APK chega até você (100% pelo celular, sem computador)
+
+O usuário usa **só o celular** — **ninguém precisa de PC**. O APK é montado de graça na
+nuvem pelo **GitHub Actions** (recurso gratuito do próprio GitHub, onde o projeto já está):
+
+1. O Claude atualiza o código e envia pro GitHub.
+2. O GitHub **monta o APK sozinho**, automaticamente.
+3. O usuário abre um link no celular e **baixa o APK pronto** (na aba **Actions** ou em
+   **Releases** do repositório).
+4. Instala no Android (autorizando "instalar de fontes desconhecidas" uma vez) e testa.
+
+**Custo:** dentro da cota gratuita do GitHub Actions, de sobra pro nosso ritmo. Se algum
+dia chegar perto do limite, **parar e avisar** (regra de custo zero).
+
+---
+
 ## Fase 0 — Preparar o terreno
 
-### Etapa 1 — App "esqueleto" que instala no celular 🟢
-**O que faço:** crio o projeto MAUI mínimo (uma tela em branco escrito "Beurer → Garmin")
-e gero um **APK**.
-**Por que primeiro:** garante que o caminho de "escrever → gerar APK → instalar no seu
-celular" funciona, antes de complicar.
-**Como você testa:**
-1. Você recebe um arquivo `.apk`.
-2. Instala no celular Android (te passo o passo-a-passo de "fontes desconhecidas").
+### Etapa 1 — Montagem automática do APK + app "esqueleto" 🟢
+**O que faço:**
+- configuro a **montagem automática do APK no GitHub** (o passo "Como o APK chega até
+  você", acima);
+- crio o projeto MAUI mínimo (uma tela em branco escrito "Beurer → Garmin").
+**Por que primeiro:** garante que o caminho "escrever código → GitHub monta o APK → você
+baixa e instala pelo celular" funciona, antes de complicar.
+**Como você testa (tudo pelo celular):**
+1. Eu te mando o **link** de onde baixar o APK no GitHub.
+2. Você baixa e instala no Android (te passo o passo-a-passo de "fontes desconhecidas").
 3. O app abre e mostra a tela em branco. ✅
-**Pronto quando:** o app abre no seu celular.
+**Pronto quando:** você consegue baixar o APK pelo celular e o app abre.
 
 ---
 
