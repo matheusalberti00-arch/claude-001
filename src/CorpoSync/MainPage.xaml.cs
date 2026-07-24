@@ -26,7 +26,8 @@ public partial class MainPage : ContentPage
 	List<Perfil> _perfis = new();
 	Perfil? _ativo;
 	bool _scanning;
-	bool _capturaFresca;
+	bool _temPeso;
+	DateTime? _melhorQuando;
 	TaskCompletionSource<byte[]>? _respostaUcp;
 	Medicao _medicao = new();
 
@@ -103,7 +104,8 @@ public partial class MainPage : ContentPage
 		_seen.Clear();
 		_canais.Clear();
 		_medicao = new Medicao();
-		_capturaFresca = false;
+		_temPeso = false;
+		_melhorQuando = null;
 		ResultadoCard.IsVisible = false;
 		Grade.Children.Clear();
 		Grade.RowDefinitions.Clear();
@@ -222,10 +224,10 @@ public partial class MainPage : ContentPage
 	// espera você subir na balança — evita que o Bluetooth solte a conexão.
 	async Task ManterVivoAsync(IDevice device)
 	{
-		for (int i = 0; i < 40 && !_capturaFresca; i++)
+		// Mantém a conexão viva por ~2 min para receber pesagens (guardadas ou ao vivo).
+		for (int i = 0; i < 40; i++)
 		{
 			await Task.Delay(3000);
-			if (_capturaFresca) return;
 			try
 			{
 				if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead)
@@ -289,32 +291,25 @@ public partial class MainPage : ContentPage
 
 		if (canal == PESO)
 		{
-			// A balança entrega a última pesagem GUARDADA assim que conecta.
-			// Só mostramos se for uma pesagem NOVA (carimbo de hora recente).
+			// A balança pode mandar VÁRIAS pesagens guardadas. Ficamos sempre
+			// com a MAIS RECENTE (maior carimbo de hora).
 			var tmp = new Medicao();
 			tmp.LerPeso(bytes);
-			bool fresca = !tmp.Quando.HasValue
-				|| (DateTime.Now - tmp.Quando.Value).TotalSeconds <= 90;
 
-			if (fresca)
+			bool maisRecente = !_melhorQuando.HasValue || !tmp.Quando.HasValue
+				|| tmp.Quando.Value >= _melhorQuando.Value;
+
+			if (maisRecente)
 			{
-				if (!_capturaFresca) _medicao = new Medicao();
-				_capturaFresca = true;
+				_medicao = new Medicao();
 				_medicao.LerPeso(bytes);
+				_melhorQuando = tmp.Quando;
+				_temPeso = true;
 				if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
 			}
-			else
-			{
-				_capturaFresca = false;
-				var hora = tmp.Quando?.ToString("dd/MM HH:mm") ?? "?";
-				MainThread.BeginInvokeOnMainThread(() =>
-				{
-					StatusLabel.Text = $"Recebi a pesagem guardada de {hora}. Suba na balança AGORA para uma nova.";
-				});
-			}
 		}
-		else if (canal == COMP && _capturaFresca)
+		else if (canal == COMP && _temPeso)
 		{
 			_medicao.LerComposicao(bytes);
 			if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
@@ -337,7 +332,7 @@ public partial class MainPage : ContentPage
 			bool recente = (DateTime.Now - quando).TotalMinutes < 2;
 			QuandoLabel.Text = recente
 				? $"Pesagem agora ({quando:HH:mm})"
-				: $"⚠ Pesagem guardada de {quando:dd/MM HH:mm}. Suba na balança para uma nova.";
+				: $"Pesagem de {quando:dd/MM HH:mm} (a mais recente guardada)";
 		}
 		else
 		{
