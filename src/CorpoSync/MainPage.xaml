@@ -43,6 +43,10 @@
                     <Label x:Name="QuandoLabel" Text="" FontSize="12" TextColor="#9E9E9E" />
 
                     <Grid x:Name="Grade" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12" />
+
+                    <Button x:Name="EnviarBtn" Text="Enviar pro Garmin" Clicked="OnEnviarGarminClicked"
+                            BackgroundColor="#2E9E86" TextColor="White" FontSize="16" HeightRequest="52" Margin="0,8,0,0" />
+                    <Label x:Name="EnvioLabel" Text="" FontSize="13" TextColor="#9E9E9E" IsVisible="False" />
                 </VerticalStackLayout>
             </Border>
 

@@ -30,6 +30,8 @@ public partial class MainPage : ContentPage
 	DateTime? _melhorQuando;
 	TaskCompletionSource<byte[]>? _respostaUcp;
 	Medicao _medicao = new();
+	readonly GarminService _garmin = new();
+	bool _enviando;
 
 	public MainPage()
 	{
@@ -107,6 +109,7 @@ public partial class MainPage : ContentPage
 		_temPeso = false;
 		_melhorQuando = null;
 		ResultadoCard.IsVisible = false;
+		MostrarEnvio(string.Empty);
 		Grade.Children.Clear();
 		Grade.RowDefinitions.Clear();
 
@@ -360,6 +363,80 @@ public partial class MainPage : ContentPage
 
 			Grade.Add(tile, col, row);
 		}
+	}
+
+	async void OnEnviarGarminClicked(object sender, EventArgs e)
+	{
+		if (_enviando) return;
+
+		if (_ativo == null)
+		{
+			await DisplayAlert("Perfil", "Escolha um perfil antes de enviar.", "OK");
+			return;
+		}
+		if (_medicao.PesoKg is not > 0)
+		{
+			await DisplayAlert("Sem dados", "Faça uma pesagem antes de enviar.", "OK");
+			return;
+		}
+
+		var senha = await PerfilStore.LerSenhaAsync(_ativo.Id);
+		if (string.IsNullOrWhiteSpace(_ativo.GarminEmail) || string.IsNullOrWhiteSpace(senha))
+		{
+			bool ir = await DisplayAlert("Login do Garmin",
+				"Este perfil ainda não tem e-mail e senha do Garmin. Quer editar o perfil agora?", "Editar", "Cancelar");
+			if (ir) await Navigation.PushAsync(new PerfilEditPage(_ativo.Id));
+			return;
+		}
+
+		_enviando = true;
+		EnviarBtn.IsEnabled = false;
+		EnviarBtn.Text = "Enviando...";
+		MostrarEnvio("Entrando na sua conta do Garmin e enviando...");
+
+		try
+		{
+			var r = await _garmin.EnviarAsync(_medicao, _ativo, _ativo.GarminEmail, senha);
+
+			// Se o Garmin pedir código de verificação (2FA), pergunta e tenta de novo.
+			while (r.PrecisaCodigo)
+			{
+				var codigo = await DisplayPromptAsync("Verificação (2FA)",
+					"O Garmin enviou um código (SMS/app/e-mail). Digite-o:",
+					accept: "Enviar", cancel: "Cancelar", keyboard: Keyboard.Numeric);
+
+				if (string.IsNullOrWhiteSpace(codigo))
+				{
+					MostrarEnvio("Envio cancelado (código não informado).");
+					return;
+				}
+				MostrarEnvio("Conferindo o código e enviando...");
+				r = await _garmin.EnviarAsync(_medicao, _ativo, _ativo.GarminEmail, senha, codigo.Trim());
+			}
+
+			MostrarEnvio(r.Mensagem);
+			if (r.Sucesso)
+				await DisplayAlert("Pronto!", "Pesagem enviada pro Garmin Connect. ✅", "OK");
+			else
+				await DisplayAlert("Não enviou", r.Mensagem, "OK");
+		}
+		catch (Exception ex)
+		{
+			MostrarEnvio("Erro inesperado ao enviar.");
+			Log("Erro no envio Garmin: " + ex.Message);
+		}
+		finally
+		{
+			_enviando = false;
+			EnviarBtn.IsEnabled = true;
+			EnviarBtn.Text = "Enviar pro Garmin";
+		}
+	}
+
+	void MostrarEnvio(string texto)
+	{
+		EnvioLabel.Text = texto;
+		EnvioLabel.IsVisible = !string.IsNullOrEmpty(texto);
 	}
 
 	static string Num(double v, int casas) => v.ToString("F" + casas, CultureInfo.InvariantCulture).Replace('.', ',');

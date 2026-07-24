@@ -13,8 +13,8 @@
 		<!-- Nome e identidade do app -->
 		<ApplicationTitle>CorpoSync</ApplicationTitle>
 		<ApplicationId>com.matheus.corposync</ApplicationId>
-		<ApplicationDisplayVersion>0.5.3</ApplicationDisplayVersion>
-		<ApplicationVersion>8</ApplicationVersion>
+		<ApplicationDisplayVersion>0.6.0</ApplicationDisplayVersion>
+		<ApplicationVersion>9</ApplicationVersion>
 
 		<SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
 	</PropertyGroup>
@@ -28,6 +28,8 @@
 	<ItemGroup>
 		<!-- Bluetooth Low Energy (mesma biblioteca do projeto de referência) -->
 		<PackageReference Include="Plugin.BLE" Version="3.2.1" />
+		<!-- Envio ao Garmin Connect (login e-mail+senha, 2FA) — mesmo autor do mi-scale-exporter -->
+		<PackageReference Include="YetAnotherGarminConnectClient" Version="0.0.17" />
 	</ItemGroup>
 
 </Project>
