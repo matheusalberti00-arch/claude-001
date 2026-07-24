@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CorpoSync.PerfilEditPage"
+             Title="Editar perfil"
+             BackgroundColor="#F5F7F6">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="Nome" FontSize="13" TextColor="#777777" />
+            <Entry x:Name="NomeEntry" Placeholder="Ex.: Matheus" BackgroundColor="White" />
+
+            <Label Text="Dados do corpo (a balança usa para calcular)" FontSize="13" TextColor="#777777" Margin="0,6,0,0" />
+
+            <Label Text="Sexo" FontSize="12" TextColor="#999999" />
+            <Picker x:Name="SexoPicker" BackgroundColor="White">
+                <Picker.Items>
+                    <x:String>Masculino</x:String>
+                    <x:String>Feminino</x:String>
+                </Picker.Items>
+            </Picker>
+
+            <Label Text="Data de nascimento" FontSize="12" TextColor="#999999" />
+            <DatePicker x:Name="NascPicker" Format="dd/MM/yyyy" BackgroundColor="White" />
+
+            <Label Text="Altura (cm)" FontSize="12" TextColor="#999999" />
+            <Entry x:Name="AlturaEntry" Keyboard="Numeric" Placeholder="Ex.: 170" BackgroundColor="White" />
+
+            <Label Text="Login do Garmin (para enviar as pesagens)" FontSize="13" TextColor="#777777" Margin="0,6,0,0" />
+
+            <Label Text="E-mail do Garmin" FontSize="12" TextColor="#999999" />
+            <Entry x:Name="EmailEntry" Keyboard="Email" Placeholder="seu@email.com" BackgroundColor="White" />
+
+            <Label Text="Senha do Garmin" FontSize="12" TextColor="#999999" />
+            <Entry x:Name="SenhaEntry" IsPassword="True" Placeholder="••••••••" BackgroundColor="White" />
+            <Label Text="A senha fica guardada protegida só no seu celular." FontSize="11" TextColor="#AAAAAA" />
+
+            <Button Text="Salvar" Clicked="OnSalvarClicked"
+                    BackgroundColor="#2E7D6F" TextColor="White" HeightRequest="52" Margin="0,10,0,0" />
+
+            <Button x:Name="ExcluirBtn" Text="Excluir perfil" Clicked="OnExcluirClicked"
+                    BackgroundColor="Transparent" TextColor="#B00020" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
