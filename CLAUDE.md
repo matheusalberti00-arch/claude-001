@@ -40,6 +40,11 @@ Leia os dois antes de trabalhar.
   **Sem histórico de pesagens local** — quem guarda é o Garmin. Cada pesagem = um envio.
 - **Dados:** sempre vêm da balança; o usuário **pode conferir e editar** antes de enviar.
 - **Plataforma:** só Android na v1. Sem iOS.
+- **Nome do app:** **CorpoSync** (evita as marcas Beurer/Garmin no que é distribuído).
+  Id do pacote: `com.matheus.corposync`. Namespace/projeto: `CorpoSync`.
+  "Beurer BF 451" só aparece em documentação, para descrever o hardware — nunca como
+  nome do app. Nome de exibição é fácil de trocar; o id do pacote é fixo (trocá-lo
+  força reinstalação limpa).
 
 ## Montagem do APK (build)
 
@@ -81,18 +86,31 @@ Proteína, Massa muscular c/ órgãos, Tecido adiposo subcutâneo).
 - ✅ Fase de planejamento: SPEC.md e PLAN.md escritos; PLAN revisado para build via
   GitHub Actions (usuário 100% no celular).
 - ✅ Print do app oficial recebido e valores do BF 451 confirmados (ver acima).
-- ✅ PLAN.md aprovado; **Etapa 1 concluída**: projeto MAUI (net10.0-android) +
-  workflow GitHub Actions montando o APK e publicando na release `apk-latest`.
-  Build verde (run #3). Aguardando o usuário instalar/testar o app esqueleto.
-- ⏳ Próximo: **Etapa 2** (modo diagnóstico BLE para achar a balança), após aprovação.
+- ✅ PLAN.md aprovado; **Etapa 1 CONCLUÍDA E APROVADA**: usuário instalou o app
+  esqueleto no celular e a tela abriu (confirmado por print). Pipeline de build 100% ok.
+- ✅ App renomeado para **CorpoSync** (a pedido do usuário, por causa das marcas).
+- 🔧 **Etapa 2 PRÉ-PRONTA (aguarda teste na balança)**: tela de diagnóstico BLE com
+  Plugin.BLE 3.2.1 — procura aparelhos, reconhece a balança pelo nome (bf/beurer/scale/
+  balan), conecta e mostra os dados crus (hex) de cada canal notify. Build verde (run #6).
+  **Ainda NÃO testado com a balança real** — o usuário vai testar quando estiver perto
+  dela (e com um PC Windows disponível, opcional, para ver logs via adb logcat).
+- ⏳ Próximo: usuário testa Etapa 2 com a balança; ajustar leitura conforme os dados
+  crus + o print oficial; depois Etapa 3 (traduzir peso/impedância).
 - Branch de trabalho: `claude/beurer-bf451-app-plan-gmfsj5`.
+- Guia de teste da Etapa 2 para o usuário: `docs/COMO-TESTAR-ETAPA-2.md`.
 
 ### Notas técnicas de build (para futuras sessões)
 - Alvo: **net10.0-android** (.NET 8 é EOL nesta data e o runner usa .NET 10).
 - `dotnet workload install maui-android`. **Usar build `-c Release`** para o APK do
   celular: o Debug usa "fast deployment" e NÃO embute as assemblies, então o APK
   instalado manualmente abre e fecha na hora (crash). Release + EmbedAssembliesIntoApk=true
-  + AndroidKeyStore=false gera APK completo, assinado com debug key e instalável.
+  gera APK completo e instalável.
+- **Assinatura fixa de teste** em `build/corposync-test.keystore` (alias `corposync`,
+  senha `corposync123`) para que atualizações instalem por cima sem desinstalar.
+  É chave DESCARTÁVEL só para sideload — NUNCA usar para Play Store.
+- O ambiente de planejamento (onde o Claude roda) NÃO consegue instalar .NET (política
+  de rede bloqueia a Microsoft). Por isso o build é feito no GitHub Actions e o Claude
+  acompanha via ferramentas MCP do GitHub.
 - `MauiProgram` sem `AddDebug` (API removida no .NET 10);
   `SkipValidateMauiImplicitPackageReferences=true` para silenciar MA002.
 - Workflow só roda em mudanças de `src/**` ou do próprio workflow (docs não disparam build).
