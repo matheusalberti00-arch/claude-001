@@ -111,15 +111,29 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
 - ✅ PLAN.md aprovado; **Etapa 1 CONCLUÍDA E APROVADA**: usuário instalou o app
   esqueleto no celular e a tela abriu (confirmado por print). Pipeline de build 100% ok.
 - ✅ App renomeado para **CorpoSync** (a pedido do usuário, por causa das marcas).
-- 🔧 **Etapa 2 PRÉ-PRONTA (aguarda teste na balança)**: tela de diagnóstico BLE com
-  Plugin.BLE 3.2.1 — procura aparelhos, reconhece a balança pelo nome (bf/beurer/scale/
-  balan), conecta e mostra os dados crus (hex) de cada canal notify. Build verde (run #6).
-  **Ainda NÃO testado com a balança real** — o usuário vai testar quando estiver perto
-  dela (e com um PC Windows disponível, opcional, para ver logs via adb logcat).
-- ⏳ Próximo: usuário testa Etapa 2 com a balança; ajustar leitura conforme os dados
-  crus + o print oficial; depois Etapa 3 (traduzir peso/impedância).
+- ✅ **Etapa 2/3 (leitura + handshake)**: conecta, faz o handshake no 2a9f (registra/
+  consente usuário), grava sexo/nascimento/altura e decodifica peso (2a9d) e composição
+  (2a9c). Decodificação conferida com o print oficial (peso, BMR ~1577, massa magra 52,7).
+- ✅ **Etapa 4 (tela bonita + perfis)**: tema escuro; "perfis favoritos" (dados do corpo +
+  login Garmin) com CRUD; começa do zero (sem perfil "Eu"); mostra resultado em blocos.
+- 🔬 **v0.5.3 — EXPERIMENTO DE LEITURA (aguarda teste na balança)**: a balança reenviava
+  sempre a MESMA pesagem antiga (guardada), não a ao vivo. Teoria: só solta a leitura
+  nova logo após registrar um usuário SEM histórico. Então agora **apaga o usuário antigo
+  (UCP 0x03) e cria um novo a cada pesagem**. Build verde (run #15). **PRECISA TESTE.**
+- ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib
+  **YetAnotherGarminConnectClient 0.0.17** (login e-mail+senha, 2FA, upload). Botão
+  "Enviar pro Garmin" na tela de resultado usa o login do perfil ativo. Manda peso,
+  gordura%, água% (de kg), músculo kg (de %) e IMC. **Não testado com conta real ainda.**
+- ⏳ Próximo (de manhã, com o usuário): testar leitura ao vivo (v0.5.3) e o envio ao
+  Garmin (criar perfil com login real). Depois decodificar os campos que faltam
+  (massa óssea, gordura visceral, idade metabólica) e completar o envio.
 - Branch de trabalho: `claude/beurer-bf451-app-plan-gmfsj5`.
-- Guia de teste da Etapa 2 para o usuário: `docs/COMO-TESTAR-ETAPA-2.md`.
+- Guias de teste: `docs/COMO-TESTAR-ETAPA-2.md`, `docs/RESUMO-DA-MANHA.md` e a pesquisa
+  em `docs/PESQUISA-BEURER-E-GARMIN.md`.
+- **Achado de pesquisa:** a BF451 é balança PADRÃO (Body Composition + User Data Service),
+  igual às BF105/600/850/950 do openScale — NÃO precisa do canal proprietário `ffff`. O
+  histórico vem pelos canais padrão após reconhecer o usuário; o contador 2a99 (Database
+  Change Increment) é o próximo experimento se o v0.5.3 não resolver.
 
 ### Notas técnicas de build (para futuras sessões)
 - Alvo: **net10.0-android** (.NET 8 é EOL nesta data e o runner usa .NET 10).
