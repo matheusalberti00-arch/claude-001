@@ -81,8 +81,19 @@ Proteína, Massa muscular c/ órgãos, Tecido adiposo subcutâneo).
 - ✅ Fase de planejamento: SPEC.md e PLAN.md escritos; PLAN revisado para build via
   GitHub Actions (usuário 100% no celular).
 - ✅ Print do app oficial recebido e valores do BF 451 confirmados (ver acima).
-- ⏳ Aguardando aprovação do PLAN.md para iniciar a **Etapa 1** (primeiro código).
+- ✅ PLAN.md aprovado; **Etapa 1 concluída**: projeto MAUI (net10.0-android) +
+  workflow GitHub Actions montando o APK e publicando na release `apk-latest`.
+  Build verde (run #3). Aguardando o usuário instalar/testar o app esqueleto.
+- ⏳ Próximo: **Etapa 2** (modo diagnóstico BLE para achar a balança), após aprovação.
 - Branch de trabalho: `claude/beurer-bf451-app-plan-gmfsj5`.
+
+### Notas técnicas de build (para futuras sessões)
+- Alvo: **net10.0-android** (.NET 8 é EOL nesta data e o runner usa .NET 10).
+- `dotnet workload install maui-android`; build Debug gera APK já assinado (teste).
+- `MauiProgram` sem `AddDebug` (API removida no .NET 10);
+  `SkipValidateMauiImplicitPackageReferences=true` para silenciar MA002.
+- Workflow só roda em mudanças de `src/**` ou do próprio workflow (docs não disparam build).
+- Download do APK: release `apk-latest` (repo é público, link direto funciona sem login).
 
 ## Referências
 
