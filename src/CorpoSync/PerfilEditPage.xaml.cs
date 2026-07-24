@@ -46,11 +46,12 @@ public partial class PerfilEditPage : ContentPage
 			return;
 		}
 
+		var nasc = NascPicker.Date ?? new DateTime(1990, 1, 1);
 		_perfil.Nome = nome;
 		_perfil.Sexo = SexoPicker.SelectedIndex == 1 ? 1 : 0;
-		_perfil.AnoNasc = NascPicker.Date.Year;
-		_perfil.MesNasc = NascPicker.Date.Month;
-		_perfil.DiaNasc = NascPicker.Date.Day;
+		_perfil.AnoNasc = nasc.Year;
+		_perfil.MesNasc = nasc.Month;
+		_perfil.DiaNasc = nasc.Day;
 		_perfil.AlturaCm = altura;
 		_perfil.GarminEmail = (EmailEntry.Text ?? "").Trim();
 
