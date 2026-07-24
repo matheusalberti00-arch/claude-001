@@ -1,7 +1,7 @@
 using Android.App;
 using Android.Runtime;
 
-namespace BeurerGarmin;
+namespace CorpoSync;
 
 [Application]
 public class MainApplication : MauiApplication

@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<TargetFramework>net10.0-android</TargetFramework>
 		<OutputType>Exe</OutputType>
-		<RootNamespace>BeurerGarmin</RootNamespace>
+		<RootNamespace>CorpoSync</RootNamespace>
 		<UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -11,10 +11,10 @@
 		<SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
 
 		<!-- Nome e identidade do app -->
-		<ApplicationTitle>Beurer Garmin</ApplicationTitle>
-		<ApplicationId>com.matheus.beurergarmin</ApplicationId>
-		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationTitle>CorpoSync</ApplicationTitle>
+		<ApplicationId>com.matheus.corposync</ApplicationId>
+		<ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+		<ApplicationVersion>2</ApplicationVersion>
 
 		<SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
 	</PropertyGroup>
@@ -23,6 +23,11 @@
 		<!-- Ícone do app e tela de abertura (splash) -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2E7D6F" />
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#2E7D6F" BaseSize="128,128" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Bluetooth Low Energy (mesma biblioteca do projeto de referência) -->
+		<PackageReference Include="Plugin.BLE" Version="3.2.1" />
 	</ItemGroup>
 
 </Project>

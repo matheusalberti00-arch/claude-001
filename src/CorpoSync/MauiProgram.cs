@@ -1,4 +1,4 @@
-namespace BeurerGarmin;
+namespace CorpoSync;
 
 public static class MauiProgram
 {

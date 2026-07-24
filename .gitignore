@@ -14,7 +14,7 @@ obj/
 *.aab
 *.keystore
 # ...exceto a assinatura de TESTE do projeto (chave descartável, só para sideload)
-!build/beurergarmin-test.keystore
+!build/corposync-test.keystore
 
 # Sistema
 .DS_Store
