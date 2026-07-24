@@ -1,0 +1,64 @@
+name: Montar APK
+
+# Monta o APK automaticamente a cada envio de código na branch do projeto,
+# e também quando acionado manualmente pelo botão "Run workflow".
+on:
+  push:
+    branches:
+      - "claude/beurer-bf451-app-plan-gmfsj5"
+      - main
+    paths:
+      - "src/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar o .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Instalar o MAUI (Android)
+        run: dotnet workload install maui-android
+
+      - name: Restaurar dependências
+        run: dotnet restore src/BeurerGarmin/BeurerGarmin.csproj
+
+      - name: Montar o APK (Debug, já assinado para teste)
+        run: >
+          dotnet build src/BeurerGarmin/BeurerGarmin.csproj
+          -c Debug
+          -f net8.0-android
+          /p:AndroidPackageFormat=apk
+
+      - name: Localizar o APK gerado
+        id: findapk
+        run: |
+          APK=$(find . -name "*-Signed.apk" | head -1)
+          echo "Encontrado: $APK"
+          echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar APK como artefato (download pela aba Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeurerGarmin-APK
+          path: "**/*-Signed.apk"
+          if-no-files-found: error
+
+      - name: Publicar APK em Releases (link fixo para baixar no celular)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: "APK mais recente (teste)"
+          body: "APK de teste gerado automaticamente. Baixe o arquivo .apk abaixo e instale no seu Android."
+          files: ${{ steps.findapk.outputs.apk_path }}
+          make_latest: true

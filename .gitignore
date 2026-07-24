@@ -1,0 +1,19 @@
+# Saídas de build do .NET
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# Arquivos de usuário do Visual Studio
+*.user
+*.suo
+.vs/
+
+# APKs gerados localmente
+*.apk
+*.aab
+*.keystore
+
+# Sistema
+.DS_Store
+Thumbs.db
