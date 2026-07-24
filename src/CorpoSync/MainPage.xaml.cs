@@ -37,6 +37,8 @@ public partial class MainPage : ContentPage
 		_adapter = CrossBluetoothLE.Current.Adapter;
 		_adapter.ScanTimeout = 30000;
 		_adapter.DeviceDiscovered += OnDeviceDiscovered;
+		_adapter.DeviceConnectionLost += (s, a) => Log("⚠ Conexão com a balança caiu.");
+		_adapter.DeviceDisconnected += (s, a) => Log("Balança desconectou.");
 	}
 
 	protected override void OnAppearing()
@@ -205,13 +207,35 @@ public partial class MainPage : ContentPage
 					(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
 				}, "altura");
 
-				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pronto! Suba na balança e fique parado.");
-				Log("Handshake completo! Suba na balança.");
+				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pronto! SUBA AGORA na balança e fique parado.");
+				Log("Handshake completo! Suba AGORA (mantendo a conexão viva por ~2 min).");
+				_ = ManterVivoAsync(device);
 			}
 		}
 		catch (Exception ex)
 		{
 			Log("Erro ao conectar/identificar: " + ex.Message);
+		}
+	}
+
+	// Mantém a conexão ativa (lendo a bateria de tempos em tempos) enquanto
+	// espera você subir na balança — evita que o Bluetooth solte a conexão.
+	async Task ManterVivoAsync(IDevice device)
+	{
+		for (int i = 0; i < 40 && !_capturaFresca; i++)
+		{
+			await Task.Delay(3000);
+			if (_capturaFresca) return;
+			try
+			{
+				if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead)
+					await bat.ReadAsync();
+			}
+			catch
+			{
+				Log("(conexão parece ter caído durante a espera)");
+				return;
+			}
 		}
 	}
 
