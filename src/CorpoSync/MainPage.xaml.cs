@@ -114,40 +114,62 @@ public partial class MainPage : ContentPage
 			var services = await device.GetServicesAsync();
 			foreach (var s in services)
 			{
+				Log($"— Serviço {Curto(s.Id)}");
 				var chars = await s.GetCharacteristicsAsync();
 				foreach (var c in chars)
 				{
-					if (!c.CanUpdate)
-						continue;
+					// Mostra o canal e o que ele sabe fazer (avisar/ler/escrever).
+					Log($"   canal {Curto(c.Id)}  [{c.Properties}]");
 
-					c.ValueUpdated += (o, args) =>
+					// Se o canal manda avisos (notify/indicate), passamos a ouvir.
+					if (c.CanUpdate)
 					{
-						var bytes = args.Characteristic.Value;
-						var hex = (bytes == null || bytes.Length == 0)
-							? "(vazio)"
-							: BitConverter.ToString(bytes);
-						Log($"DADO {c.Uuid}: {hex}");
-					};
+						c.ValueUpdated += (o, args) =>
+						{
+							var bytes = args.Characteristic.Value;
+							var hex = (bytes == null || bytes.Length == 0)
+								? "(vazio)"
+								: BitConverter.ToString(bytes);
+							Log($"DADO {Curto(c.Id)}: {hex}");
+						};
 
-					try
-					{
-						await c.StartUpdatesAsync();
-						Log($"Ouvindo canal {c.Uuid}");
+						try { await c.StartUpdatesAsync(); }
+						catch (Exception ex) { Log($"   (não deu p/ ouvir {Curto(c.Id)}: {ex.Message})"); }
 					}
-					catch
+
+					// Se o canal pode ser lido, lemos uma vez o valor atual.
+					if (c.CanRead)
 					{
-						// alguns canais não deixam ouvir; segue o jogo
+						try
+						{
+							var (data, _) = await c.ReadAsync();
+							var hex = (data == null || data.Length == 0)
+								? "(vazio)"
+								: BitConverter.ToString(data);
+							Log($"   leitura {Curto(c.Id)}: {hex}");
+						}
+						catch
+						{
+							// alguns canais não deixam ler; tudo bem
+						}
 					}
 				}
 			}
 
-			Log("Pronto! Agora suba na balança e veja os dados aparecerem abaixo.");
-			StatusLabel.Text = "Conectado. Suba na balança.";
+			Log("Pronto! Fique EM CIMA da balança até ela mostrar o resultado final.");
+			StatusLabel.Text = "Conectado. Suba e permaneça na balança.";
 		}
 		catch (Exception ex)
 		{
 			Log("Erro ao conectar: " + ex.Message);
 		}
+	}
+
+	// Mostra a parte curta de um UUID padrão (ex.: 2a9d) para o registro ficar legível.
+	static string Curto(Guid g)
+	{
+		var s = g.ToString();
+		return s.Length >= 8 ? s.Substring(4, 4) : s;
 	}
 
 	async Task<bool> EnsurePermissionsAsync()
