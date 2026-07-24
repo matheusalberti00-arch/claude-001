@@ -168,32 +168,30 @@ public partial class MainPage : ContentPage
 			byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
 			byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
 
-			int idx = _ativo.ScaleUserIndex;
-
-			if (idx >= 0)
+			// TESTE: sempre cria um usuário NOVO (a balança parece só enviar a
+			// leitura ao vivo logo após um registro). Apaga o anterior para não
+			// lotar os 8 espaços da balança.
+			int antigo = _ativo.ScaleUserIndex;
+			if (antigo >= 0)
 			{
-				Log($"Usuário na balança nº {idx}. Consentindo...");
-				var r = await EscreverUcpEsperar(new byte[] { 0x02, (byte)idx, cLo, cHi }, "Consentir");
-				if (!(r != null && r.Length >= 3 && r[0] == 0x20 && r[2] == 0x01))
-				{
-					Log("Consentimento falhou; registrando novo usuário.");
-					idx = -1;
-				}
+				Log($"Limpando usuário antigo (nº {antigo})...");
+				var rc = await EscreverUcpEsperar(new byte[] { 0x02, (byte)antigo, cLo, cHi }, "Consentir antigo");
+				if (rc != null && rc.Length >= 3 && rc[0] == 0x20 && rc[2] == 0x01)
+					await EscreverUcpEsperar(new byte[] { 0x03 }, "Apagar usuário antigo");
+				SalvarIndiceNoPerfil(-1);
 			}
 
-			if (idx < 0)
+			int idx = -1;
+			var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
+			if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
 			{
-				var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
-				if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
-				{
-					idx = r[3];
-					SalvarIndiceNoPerfil(idx);
-					Log($"✔ Usuário criado na balança (nº {idx}).");
-				}
-				else
-				{
-					Log("✖ Não consegui registrar o usuário na balança.");
-				}
+				idx = r[3];
+				SalvarIndiceNoPerfil(idx);
+				Log($"✔ Usuário criado na balança (nº {idx}).");
+			}
+			else
+			{
+				Log("✖ Não consegui registrar o usuário na balança.");
 			}
 
 			if (idx >= 0)
