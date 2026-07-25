@@ -163,83 +163,13 @@ public partial class MainPage : ContentPage
 		try
 		{
 			await _adapter.StopScanningForDevicesAsync();
-			await _adapter.ConnectToDeviceAsync(device);
-			_dispositivo = device;
-			Log("Conectado. Preparando os canais...");
+			bool ok = await ConectarEPrepararAsync(device);
+			if (!ok) return;
 
-			var services = await device.GetServicesAsync();
-			foreach (var s in services)
-				foreach (var c in await s.GetCharacteristicsAsync())
-					_canais[Curto(c.Id)] = c;
-
-			await OuvirAsync(UCP, OnUcpAtualizado);
-			await OuvirAsync(PESO, OnMedicaoRecebida);
-			await OuvirAsync(COMP, OnMedicaoRecebida);
-
-			// Ouve também o contador de "pesagem nova" (2a99) — só para diagnóstico.
-			await OuvirAsync(DBCHG, OnDbChange);
-
-			byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
-			byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
-
-			// IMPORTANTE: NÃO apagamos mais o usuário (o comando de apagar fazia a
-			// balança mostrar "DEL" e não pesar). Em vez disso reaproveitamos o
-			// usuário já salvo (consentindo) e só criamos um novo se não houver.
 			int idx = _ativo.ScaleUserIndex;
-			bool pronto = false;
-			bool registrouNovo = false;
-
-			if (idx >= 0)
-			{
-				Log($"Usando seu usuário salvo (nº {idx}). Desbloqueando...");
-				var rc = await EscreverUcpEsperar(new byte[] { 0x02, (byte)idx, cLo, cHi }, "Consentir usuário");
-				pronto = rc != null && rc.Length >= 3 && rc[0] == 0x20 && rc[2] == 0x01;
-				if (!pronto) Log("Não deu para desbloquear o usuário salvo (talvez apagado). Vou criar de novo.");
-			}
-
-			if (!pronto)
-			{
-				var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
-				if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
-				{
-					idx = r[3];
-					SalvarIndiceNoPerfil(idx);
-					pronto = true;
-					registrouNovo = true;
-					Log($"✔ Usuário criado na balança (nº {idx}).");
-				}
-				else
-				{
-					Log("✖ Não consegui registrar o usuário na balança.");
-				}
-			}
-
-			if (pronto)
-			{
-				// Só gravamos sexo/nascimento/altura na PRIMEIRA vez (ao registrar).
-				// Nas próximas, a balança já guardou — menos interação, app mais leve.
-				if (registrouNovo)
-				{
-					await EscreverPerfil(SEXO_CH, new byte[] { (byte)_ativo.Sexo }, "sexo");
-					await EscreverPerfil(NASC_CH, new byte[]
-					{
-						(byte)(_ativo.AnoNasc & 0xFF), (byte)((_ativo.AnoNasc >> 8) & 0xFF),
-						(byte)_ativo.MesNasc, (byte)_ativo.DiaNasc
-					}, "nascimento");
-					await EscreverPerfil(ALT_CH, new byte[]
-					{
-						(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
-					}, "altura");
-				}
-
-				// Ajusta o relógio da balança para AGORA: assim a pesagem nova
-				// recebe o carimbo de hora atual e conseguimos diferenciá-la das antigas.
-				await AjustarRelogioAsync();
-
-				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = $"Pronto! A balança deve mostrar U{idx}. SUBA AGORA e fique parado.");
-				Log($"Handshake completo (usuário nº {idx}). Suba AGORA e aguarde a pesagem de agora.");
-				_ = ManterVivoAsync(device);
-			}
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = $"A balança deve mostrar U{idx}. SUBA e espere o ícone de upload sumir.");
+			Log("Pronto. Suba na balança; vou sincronizar para pegar a pesagem de agora.");
+			_ = FluxoLeituraAsync(device);
 		}
 		catch (Exception ex)
 		{
@@ -247,35 +177,119 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	// Mantém a conexão ativa (lendo a bateria de tempos em tempos) enquanto
-	// espera você subir na balança — evita que o Bluetooth solte a conexão.
-	// Para assim que a pesagem chega (aí desconectamos para o app ficar leve).
-	async Task ManterVivoAsync(IDevice device)
+	// Conecta, (re)descobre os canais, assina as notificações e faz o handshake
+	// (desbloquear/registrar o usuário + acertar o relógio). Usada tanto na 1ª
+	// conexão quanto nas reconexões que forçam a sincronização.
+	async Task<bool> ConectarEPrepararAsync(IDevice device)
 	{
-		for (int i = 0; i < 40; i++)
+		if (_ativo == null) return false;
+
+		await _adapter.ConnectToDeviceAsync(device);
+		_dispositivo = device;
+		Log("Conectado. Preparando os canais...");
+
+		_canais.Clear();
+		var services = await device.GetServicesAsync();
+		foreach (var s in services)
+			foreach (var c in await s.GetCharacteristicsAsync())
+				_canais[Curto(c.Id)] = c;
+
+		await OuvirAsync(UCP, OnUcpAtualizado);
+		await OuvirAsync(PESO, OnMedicaoRecebida);
+		await OuvirAsync(COMP, OnMedicaoRecebida);
+		await OuvirAsync(DBCHG, OnDbChange);
+
+		byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
+		byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
+
+		// NÃO apagamos usuário (isso causava "DEL"). Reaproveitamos o salvo
+		// (consentindo) e só criamos um novo se não houver.
+		int idx = _ativo.ScaleUserIndex;
+		bool pronto = false;
+		bool registrouNovo = false;
+
+		if (idx >= 0)
 		{
-			if (_pesagemRecebida) return;   // já recebemos: não precisa mais segurar a conexão
-			await Task.Delay(3000);
-			if (_pesagemRecebida) return;
-			try
+			Log($"Usando seu usuário salvo (nº {idx}). Desbloqueando...");
+			var rc = await EscreverUcpEsperar(new byte[] { 0x02, (byte)idx, cLo, cHi }, "Consentir usuário");
+			pronto = rc != null && rc.Length >= 3 && rc[0] == 0x20 && rc[2] == 0x01;
+			if (!pronto) Log("Não deu para desbloquear o usuário salvo (talvez apagado). Vou criar de novo.");
+		}
+
+		if (!pronto)
+		{
+			var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
+			if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
 			{
-				if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead)
-					await bat.ReadAsync();
+				idx = r[3];
+				SalvarIndiceNoPerfil(idx);
+				pronto = true;
+				registrouNovo = true;
+				Log($"✔ Usuário criado na balança (nº {idx}).");
 			}
-			catch
+			else
 			{
-				Log("(conexão parece ter caído durante a espera)");
-				return;
+				Log("✖ Não consegui registrar o usuário na balança.");
 			}
 		}
 
-		// Passaram ~2 min e a pesagem de AGORA não chegou. Encerra mostrando o que veio.
+		if (!pronto) return false;
+
+		// Só grava sexo/nascimento/altura na PRIMEIRA vez (ao registrar).
+		if (registrouNovo)
+		{
+			await EscreverPerfil(SEXO_CH, new byte[] { (byte)_ativo.Sexo }, "sexo");
+			await EscreverPerfil(NASC_CH, new byte[]
+			{
+				(byte)(_ativo.AnoNasc & 0xFF), (byte)((_ativo.AnoNasc >> 8) & 0xFF),
+				(byte)_ativo.MesNasc, (byte)_ativo.DiaNasc
+			}, "nascimento");
+			await EscreverPerfil(ALT_CH, new byte[]
+			{
+				(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
+			}, "altura");
+		}
+
+		await AjustarRelogioAsync();
+		return true;
+	}
+
+	// A balança entrega as pesagens no MOMENTO da conexão; uma pesagem feita
+	// DURANTE a conexão só vem na próxima. Por isso, depois que você sobe e mede,
+	// RECONECTAMOS para forçar a balança a sincronizar a pesagem recém-feita.
+	async Task FluxoLeituraAsync(IDevice device)
+	{
+		for (int tentativa = 1; tentativa <= 6 && !_pesagemRecebida; tentativa++)
+		{
+			// Janela (~15s) para você subir e a balança medir/guardar, mantendo viva.
+			for (int i = 0; i < 5 && !_pesagemRecebida; i++)
+			{
+				await Task.Delay(3000);
+				try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
+				catch { break; }
+			}
+			if (_pesagemRecebida) return;
+
+			// Reconecta: é isto que faz a balança entregar a pesagem recém-feita.
+			Log($"Sincronizando com a balança (tentativa {tentativa})...");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Sincronizando com a balança...");
+			try { await _adapter.DisconnectDeviceAsync(device); } catch { }
+			await Task.Delay(1500);
+			if (_pesagemRecebida) return;
+			try
+			{
+				bool ok = await ConectarEPrepararAsync(device);
+				if (!ok) Log("(não consegui preparar na reconexão)");
+			}
+			catch (Exception ex) { Log($"(reconexão falhou: {ex.Message})"); }
+		}
+
 		if (!_pesagemRecebida)
 		{
-			try { if (_dispositivo != null) await _adapter.DisconnectDeviceAsync(_dispositivo); } catch { }
+			try { await _adapter.DisconnectDeviceAsync(device); } catch { }
 			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = _temPeso
-				? "Não recebi a pesagem de agora. Mostrando a mais recente guardada. Tente pesar de novo."
-				: "Não recebi pesagem. Suba na balança logo após tocar em Pesar.");
+				? "Não recebi a pesagem de agora. Mostrando a mais recente. Tente pesar de novo."
+				: "Não recebi pesagem. Suba logo após tocar em Pesar e espere o upload.");
 		}
 	}
 
@@ -397,6 +411,7 @@ public partial class MainPage : ContentPage
 
 			if (aoVivo)
 			{
+				_pesagemRecebida = true;   // para o loop de sincronização/reconexão
 				Log("✔ Pesagem de AGORA recebida.");
 				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pesagem de agora recebida! Confira abaixo.");
 				AgendarDesconexao();   // só agora encerramos — pegamos a boa
