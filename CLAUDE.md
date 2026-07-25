@@ -132,14 +132,18 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   desconecta quando chega uma pesagem com carimbo ~agora** (dentro de 3 min do relógio do
   celular); enquanto isso mostra "aguardando a de agora". Também **não regrava sexo/nasc/
   altura** ao reaproveitar usuário (menos interação). **PRECISA TESTE.**
-- 🔑 **v0.6.4 — RECONECTAR PARA SINCRONIZAR (mudança de estratégia)**: o usuário provou
-  que escutar passivamente (mesmo 2 min) NÃO traz a pesagem nova. Descoberta: a balança
-  entrega as pesagens **no momento da conexão**; uma pesagem feita DURANTE a conexão só vem
-  na PRÓXIMA. Então o app agora, depois que você sobe e mede, **desconecta e reconecta**
-  (loop de até 6 tentativas, ~15s cada) para forçar a sincronização da pesagem recém-feita;
-  para assim que chega uma com carimbo ~agora. Código refatorado: `ConectarEPrepararAsync`
-  (conecta+assina+handshake, reutilizável) + `FluxoLeituraAsync` (espera+reconecta).
-  **PRECISA TESTE — é a hipótese mais forte para sair do loop da pesagem antiga.**
+- ❌ v0.6.4 (reconectar em loop p/ sincronizar) FALHOU: o log (decodificado) provou que
+  TODA reconexão baixa o MESMO pacote 2a9d, byte a byte, com carimbo 12:56:22 — a balança
+  só reenvia a última guardada e NUNCA uma nova. Pior: conectar/desconectar toda hora parece
+  ATRAPALHAR a balança a completar e guardar a pesagem nova (por isso a última guardada
+  ficou congelada em 12:56).
+- 🔑 **v0.6.5 — MEÇA PRIMEIRO, BAIXE DEPOIS (escolha do usuário)**: novo fluxo, igual ao app
+  oficial/openScale. O usuário **sobe na balança e deixa ela terminar TUDO sozinha** (sem o
+  app grudado), a balança guarda; **depois** toca em "Pesar" e o app conecta **uma vez**,
+  consente o usuário e **baixa a pesagem de data mais nova** (a balança despeja as guardadas
+  ao conectar; o app fica com a de maior carimbo de hora), mostra e desconecta. Removido o
+  loop de reconexão e o `AgendarDesconexao`; `FluxoLeituraAsync` virou `BaixarPesagemAsync`
+  (coleta ~8s). **PRECISA TESTE.** Se ainda vier antiga, o próximo é o canal vendor `ffff`.
 - ⚠️ Pendências pequenas: faltam decodificar massa óssea, gordura visceral e idade
   metabólica (não achados nos bytes padrão — provavelmente no canal vendor `ffff`).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib

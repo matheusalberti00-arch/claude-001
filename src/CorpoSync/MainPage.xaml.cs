@@ -34,9 +34,7 @@ public partial class MainPage : ContentPage
 	Medicao _medicao = new();
 	readonly GarminService _garmin = new();
 	bool _enviando;
-	IDevice? _dispositivo;
 	bool _pesagemRecebida;
-	bool _desconexaoAgendada;
 
 	public MainPage()
 	{
@@ -114,7 +112,6 @@ public partial class MainPage : ContentPage
 		_temPeso = false;
 		_melhorQuando = null;
 		_pesagemRecebida = false;
-		_desconexaoAgendada = false;
 		ResultadoCard.IsVisible = false;
 		MostrarEnvio(string.Empty);
 		Grade.Children.Clear();
@@ -166,10 +163,9 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			int idx = _ativo.ScaleUserIndex;
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = $"A balança deve mostrar U{idx}. SUBA e espere o ícone de upload sumir.");
-			Log("Pronto. Suba na balança; vou sincronizar para pegar a pesagem de agora.");
-			_ = FluxoLeituraAsync(device);
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado. Baixando sua pesagem mais recente...");
+			Log("Conectado. Baixando a pesagem mais recente guardada.");
+			_ = BaixarPesagemAsync(device);
 		}
 		catch (Exception ex)
 		{
@@ -185,7 +181,6 @@ public partial class MainPage : ContentPage
 		if (_ativo == null) return false;
 
 		await _adapter.ConnectToDeviceAsync(device);
-		_dispositivo = device;
 		Log("Conectado. Preparando os canais...");
 
 		_canais.Clear();
@@ -254,63 +249,31 @@ public partial class MainPage : ContentPage
 		return true;
 	}
 
-	// A balança entrega as pesagens no MOMENTO da conexão; uma pesagem feita
-	// DURANTE a conexão só vem na próxima. Por isso, depois que você sobe e mede,
-	// RECONECTAMOS para forçar a balança a sincronizar a pesagem recém-feita.
-	async Task FluxoLeituraAsync(IDevice device)
+	// Fluxo "meça primeiro": a pesagem já foi feita e guardada na balança.
+	// Aqui só BAIXAMOS a mais recente — a balança despeja as pesagens guardadas
+	// logo ao conectar; ficamos com a de DATA MAIS NOVA e desconectamos.
+	async Task BaixarPesagemAsync(IDevice device)
 	{
-		for (int tentativa = 1; tentativa <= 6 && !_pesagemRecebida; tentativa++)
+		for (int i = 0; i < 8 && !_pesagemRecebida; i++)
 		{
-			// Janela (~15s) para você subir e a balança medir/guardar, mantendo viva.
-			for (int i = 0; i < 5 && !_pesagemRecebida; i++)
-			{
-				await Task.Delay(3000);
-				try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
-				catch { break; }
-			}
-			if (_pesagemRecebida) return;
-
-			// Reconecta: é isto que faz a balança entregar a pesagem recém-feita.
-			Log($"Sincronizando com a balança (tentativa {tentativa})...");
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Sincronizando com a balança...");
-			try { await _adapter.DisconnectDeviceAsync(device); } catch { }
-			await Task.Delay(1500);
-			if (_pesagemRecebida) return;
-			try
-			{
-				bool ok = await ConectarEPrepararAsync(device);
-				if (!ok) Log("(não consegui preparar na reconexão)");
-			}
-			catch (Exception ex) { Log($"(reconexão falhou: {ex.Message})"); }
+			await Task.Delay(1000);
+			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
+			catch { break; }
 		}
 
-		if (!_pesagemRecebida)
-		{
-			try { await _adapter.DisconnectDeviceAsync(device); } catch { }
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = _temPeso
-				? "Não recebi a pesagem de agora. Mostrando a mais recente. Tente pesar de novo."
-				: "Não recebi pesagem. Suba logo após tocar em Pesar e espere o upload.");
-		}
-	}
+		try { await _adapter.DisconnectDeviceAsync(device); } catch { }
 
-	// Assim que a pesagem chega, esperamos alguns segundos (para a composição
-	// também chegar) e desconectamos da balança — deixa o app leve e livre para
-	// enviar ao Garmin sem travar.
-	void AgendarDesconexao()
-	{
-		if (_desconexaoAgendada) return;
-		_desconexaoAgendada = true;
-		_ = Task.Run(async () =>
+		if (_temPeso)
 		{
-			await Task.Delay(4000);
-			_pesagemRecebida = true;
-			try
-			{
-				if (_dispositivo != null) await _adapter.DisconnectDeviceAsync(_dispositivo);
-				Log("Pesagem recebida — desconectei da balança (app leve para enviar).");
-			}
-			catch { }
-		});
+			bool recente = _melhorQuando.HasValue && Math.Abs((DateTime.Now - _melhorQuando.Value).TotalMinutes) < 3;
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = recente
+				? "Pesagem baixada! Confira e envie pro Garmin."
+				: "Baixei a mais recente guardada. Se você ACABOU de pesar, espere a balança terminar TUDO e toque em Pesar de novo.");
+		}
+		else
+		{
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Não achei pesagem. Suba na balança, espere terminar, depois toque em Pesar.");
+		}
 	}
 
 	void SalvarIndiceNoPerfil(int idx)
@@ -387,14 +350,10 @@ public partial class MainPage : ContentPage
 
 		if (canal == PESO)
 		{
-			// A balança manda a pesagem GUARDADA primeiro e a AO VIVO (bioimpedância)
-			// alguns segundos depois. Como acertamos o relógio, a ao vivo vem carimbada
-			// com ~agora. Ficamos com a MAIS RECENTE e só ENCERRAMOS quando chega a de agora.
+			// A balança despeja as pesagens guardadas ao conectar. Ficamos sempre
+			// com a de DATA MAIS NOVA (maior carimbo de hora).
 			var tmp = new Medicao();
 			tmp.LerPeso(bytes);
-
-			// "Ao vivo" = carimbo de hora dentro de ~3 min do relógio do celular.
-			bool aoVivo = tmp.Quando.HasValue && Math.Abs((DateTime.Now - tmp.Quando.Value).TotalMinutes) < 3;
 
 			bool maisRecente = !_melhorQuando.HasValue || !tmp.Quando.HasValue
 				|| tmp.Quando.Value >= _melhorQuando.Value;
@@ -409,16 +368,11 @@ public partial class MainPage : ContentPage
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
 			}
 
-			if (aoVivo)
+			// Se a mais nova já é de ~agora, encerramos cedo (não precisa esperar os 8s).
+			if (tmp.Quando.HasValue && Math.Abs((DateTime.Now - tmp.Quando.Value).TotalMinutes) < 3)
 			{
-				_pesagemRecebida = true;   // para o loop de sincronização/reconexão
-				Log("✔ Pesagem de AGORA recebida.");
-				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pesagem de agora recebida! Confira abaixo.");
-				AgendarDesconexao();   // só agora encerramos — pegamos a boa
-			}
-			else
-			{
-				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Recebi uma pesagem guardada. Aguardando a de AGORA (fique na balança)...");
+				_pesagemRecebida = true;
+				Log("✔ Pesagem de agora recebida.");
 			}
 		}
 		else if (canal == COMP && _temPeso)
