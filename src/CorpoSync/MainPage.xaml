@@ -26,7 +26,7 @@
             <Button x:Name="PesarBtn" Text="Pesar" Clicked="OnPesarClicked"
                     BackgroundColor="#2E9E86" TextColor="White" FontSize="18" HeightRequest="56" />
 
-            <Label x:Name="StatusLabel" Text="1) Suba na balança e espere ela mostrar tudo e desligar. 2) Toque em Pesar para baixar."
+            <Label x:Name="StatusLabel" Text="Escolha o perfil, toque em Pesar e suba na balança quando pedir."
                    FontSize="14" TextColor="#BDBDBD" />
 
             <!-- Resultado -->

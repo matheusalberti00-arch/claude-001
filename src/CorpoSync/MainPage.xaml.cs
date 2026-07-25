@@ -17,7 +17,6 @@ public partial class MainPage : ContentPage
 	const string SEXO_CH = "2a8c";
 	const string NASC_CH = "2a85";
 	const string ALT_CH = "2a8e";
-	const string DBCHG = "2a99";   // Database Change Increment (contador de pesagem nova)
 	const string RELOGIO = "2a2b"; // Current Time (relógio da balança)
 
 	readonly IBluetoothLE _ble;
@@ -163,9 +162,9 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "SUBA AGORA e fique parado ~1 min. Estou gravando o canal secreto da balança.");
-			Log("Conectado. MODO CAPTURA: suba agora; vou registrar tudo (inclusive canais fff) por ~1 min.");
-			_ = BaixarPesagemAsync(device);
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado. SUBA AGORA e fique parado na balança.");
+			Log("Conectado. Suba agora; vou ler até chegar na pesagem de agora.");
+			_ = LerPesagemAsync(device);
 		}
 		catch (Exception ex)
 		{
@@ -192,12 +191,6 @@ public partial class MainPage : ContentPage
 		await OuvirAsync(UCP, OnUcpAtualizado);
 		await OuvirAsync(PESO, OnMedicaoRecebida);
 		await OuvirAsync(COMP, OnMedicaoRecebida);
-		await OuvirAsync(DBCHG, OnDbChange);
-
-		// MODO CAPTURA do canal secreto da Beurer (ffff / fff1..fff8): assinamos
-		// todos os canais que "avisam" (notify/indicate) e registramos os bytes crus.
-		foreach (var fff in new[] { "fff1", "fff4", "fff5", "fff6", "fff8" })
-			await OuvirAsync(fff, OnFffData);
 
 		byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
 		byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
@@ -254,19 +247,16 @@ public partial class MainPage : ContentPage
 		return true;
 	}
 
-	// Fluxo "meça primeiro": a pesagem já foi feita e guardada na balança.
-	// Aqui só BAIXAMOS a mais recente — a balança despeja as pesagens guardadas
-	// logo ao conectar; ficamos com a de DATA MAIS NOVA e desconectamos.
-	async Task BaixarPesagemAsync(IDevice device)
+	// A balança "desfila" as pesagens guardadas ao conectar, das antigas para as
+	// novas. Ficamos conectados enquanto você sobe e mede, sempre guardando a de
+	// DATA MAIS NOVA, e encerramos assim que chega a pesagem de agora (ou após ~1 min).
+	async Task LerPesagemAsync(IDevice device)
 	{
-		// MODO CAPTURA: fica conectado ~1 min (30 × 2s) enquanto você sobe e mede,
-		// registrando tudo (canais padrão E secretos fff). Para antes se chegar
-		// uma pesagem padrão com carimbo de agora.
 		for (int i = 0; i < 30 && !_pesagemRecebida; i++)
 		{
 			await Task.Delay(2000);
 			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
-			catch { Log("(conexão caiu durante a captura)"); break; }
+			catch { Log("(conexão caiu durante a leitura)"); break; }
 		}
 
 		try { await _adapter.DisconnectDeviceAsync(device); } catch { }
@@ -276,11 +266,11 @@ public partial class MainPage : ContentPage
 			bool recente = _melhorQuando.HasValue && Math.Abs((DateTime.Now - _melhorQuando.Value).TotalMinutes) < 3;
 			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = recente
 				? "Pesagem de agora recebida! Confira e envie pro Garmin."
-				: "Captura concluída. Abra 'Detalhes técnicos' e me mande o print (procuro o CANAL SECRETO).");
+				: "Só veio a mais recente guardada. Suba, espere a balança terminar e toque em Pesar de novo.");
 		}
 		else
 		{
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Captura concluída. Abra 'Detalhes técnicos' e me mande o print.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Não recebi pesagem. Toque em Pesar e suba na balança logo em seguida.");
 		}
 	}
 
@@ -327,21 +317,6 @@ public partial class MainPage : ContentPage
 		};
 		try { c.WriteType = CharacteristicWriteType.WithResponse; await c.WriteAsync(b); Log($"Relógio ajustado p/ agora: {Hex(b)}"); }
 		catch (Exception ex) { Log($"(não deu p/ ajustar o relógio: {ex.Message})"); }
-	}
-
-	// Contador de "pesagem nova" da balança (2a99) — só registramos no log.
-	void OnDbChange(object? sender, CharacteristicUpdatedEventArgs args)
-	{
-		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
-		Log($"Contador 2a99 (a balança avisou pesagem nova): {Hex(bytes)}");
-	}
-
-	// MODO CAPTURA: qualquer coisa que a balança mandar nos canais secretos (fff).
-	void OnFffData(object? sender, CharacteristicUpdatedEventArgs args)
-	{
-		var canal = Curto(args.Characteristic.Id);
-		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
-		Log($"★ CANAL SECRETO {canal}: {Hex(bytes)}");
 	}
 
 	async Task EscreverPerfil(string uuid, byte[] valor, string nome)

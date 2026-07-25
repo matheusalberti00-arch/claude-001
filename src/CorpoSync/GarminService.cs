@@ -9,6 +9,7 @@ public class ResultadoGarmin
 {
 	public bool Sucesso;
 	public bool PrecisaCodigo;   // Garmin pediu código de verificação (2FA)
+	public bool Passageiro;      // falha que costuma resolver tentando de novo
 	public string Mensagem = "";
 }
 
@@ -26,17 +27,37 @@ public class GarminService
 	// a mesma sessão de login).
 	public async Task<ResultadoGarmin> EnviarAsync(Medicao m, Perfil p, string email, string senha, string? codigo = null)
 	{
+		email = email?.Trim() ?? "";
+		senha = senha?.Trim() ?? "";
+
 		if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(senha))
 			return new ResultadoGarmin { Mensagem = "Este perfil não tem e-mail/senha do Garmin. Edite o perfil e preencha o login." };
 
 		if (m.PesoKg is not > 0)
 			return new ResultadoGarmin { Mensagem = "Não há peso para enviar." };
 
+		// Continuação do 2FA: reaproveita a MESMA sessão que pediu o código.
+		if (!string.IsNullOrEmpty(codigo) && _cliente != null)
+			return await UmaTentativaAsync(m, p, email, senha, codigo, novaSessao: false);
+
+		// 1ª chamada: o login do Garmin às vezes falha por instabilidade momentânea
+		// (ex.: OAuthToken2IsNull). Tentamos até 3 vezes com uma sessão nova.
+		ResultadoGarmin r = new();
+		for (int tentativa = 1; tentativa <= 3; tentativa++)
+		{
+			r = await UmaTentativaAsync(m, p, email, senha, "", novaSessao: true);
+			if (r.Sucesso || r.PrecisaCodigo || !r.Passageiro)
+				return r;
+			await Task.Delay(2500);   // falha passageira: espera um pouco e tenta de novo
+		}
+		return r;
+	}
+
+	async Task<ResultadoGarmin> UmaTentativaAsync(Medicao m, Perfil p, string email, string senha, string codigo, bool novaSessao)
+	{
 		try
 		{
-			// 1ª chamada (sem código): abre uma sessão nova.
-			// Chamada com código (2FA): reaproveita a sessão que já pediu o código.
-			if (string.IsNullOrEmpty(codigo) || _cliente == null)
+			if (novaSessao || _cliente == null)
 				_cliente = await ClientFactory.Create(GarminServer.GLOBAL);
 
 			var dados = new GarminWeightScaleDTO
@@ -68,7 +89,7 @@ public class GarminService
 
 			var credenciais = new CredentialsData { Email = email, Password = senha };
 
-			var r = await _cliente.UploadWeight(dados, perfil, credenciais, codigo ?? "");
+			var r = await _cliente!.UploadWeight(dados, perfil, credenciais, codigo ?? "");
 
 			if (r.MFACodeRequested || r.AuthStatus == AuthStatus.MFARedirected)
 				return new ResultadoGarmin { PrecisaCodigo = true, Mensagem = "O Garmin pediu um código de verificação (2FA)." };
@@ -80,14 +101,32 @@ public class GarminService
 			}
 
 			var bruto = (r.ErrorLogs != null && r.ErrorLogs.Count > 0) ? r.ErrorLogs[0] : r.AuthStatus.ToString();
-			return new ResultadoGarmin { Mensagem = Traduzir(r.AuthStatus, bruto) };
+			_cliente = null;
+			return new ResultadoGarmin { Mensagem = Traduzir(r.AuthStatus, bruto), Passageiro = EhPassageiro(r.AuthStatus) };
 		}
 		catch (Exception ex)
 		{
 			_cliente = null;
-			return new ResultadoGarmin { Mensagem = "Não consegui enviar pro Garmin: " + ex.Message };
+			return new ResultadoGarmin { Mensagem = "Não consegui enviar pro Garmin: " + ex.Message, Passageiro = true };
 		}
 	}
+
+	// Falhas que costumam ser passageiras (vale tentar de novo automaticamente).
+	static bool EhPassageiro(AuthStatus s) => s switch
+	{
+		AuthStatus.OAuthToken2IsNull or
+		AuthStatus.OAuthToken2IsNullFromSavedOAuth1 or
+		AuthStatus.OAuth2TokensProblem or
+		AuthStatus.OAuth1TokensProblem or
+		AuthStatus.OAuth1TokensAreEmpty or
+		AuthStatus.SuccessButCouldNotFindServiceTicket or
+		AuthStatus.SuccessButTicketIsEmpty or
+		AuthStatus.InitCookiesError or
+		AuthStatus.CSRFTokenNotFound or
+		AuthStatus.CSRFTokenEmpty or
+		AuthStatus.CSRFTokenCannotParse => true,
+		_ => false
+	};
 
 	// Traduz os erros técnicos do Garmin para frases simples.
 	static string Traduzir(AuthStatus s, string bruto) => s switch
@@ -97,6 +136,10 @@ public class GarminService
 		AuthStatus.InvalidMFACode => "O código de verificação (2FA) estava errado. Tente de novo.",
 		AuthStatus.AuthBlockedByCloudFlare or AuthStatus.MFAAuthBlockedByCloudFlare =>
 			"O Garmin bloqueou o acesso por segurança. Espere alguns minutos e tente de novo.",
+		AuthStatus.OAuthToken2IsNull or AuthStatus.OAuthToken2IsNullFromSavedOAuth1
+			or AuthStatus.OAuth2TokensProblem or AuthStatus.OAuth1TokensProblem
+			or AuthStatus.OAuth1TokensAreEmpty =>
+			"O Garmin não concluiu o login (instabilidade momentânea). Tente enviar de novo; se persistir, confira a senha ou se sua conta usa código de verificação (2FA).",
 		_ => "Não consegui enviar pro Garmin. (" + bruto + ")"
 	};
 }
