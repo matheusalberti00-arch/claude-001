@@ -13,8 +13,8 @@
 		<!-- Nome e identidade do app -->
 		<ApplicationTitle>CorpoSync</ApplicationTitle>
 		<ApplicationId>com.matheus.corposync</ApplicationId>
-		<ApplicationDisplayVersion>0.6.2</ApplicationDisplayVersion>
-		<ApplicationVersion>11</ApplicationVersion>
+		<ApplicationDisplayVersion>0.6.3</ApplicationDisplayVersion>
+		<ApplicationVersion>12</ApplicationVersion>
 
 		<SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
 	</PropertyGroup>

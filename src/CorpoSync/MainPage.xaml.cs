@@ -187,6 +187,7 @@ public partial class MainPage : ContentPage
 			// usuário já salvo (consentindo) e só criamos um novo se não houver.
 			int idx = _ativo.ScaleUserIndex;
 			bool pronto = false;
+			bool registrouNovo = false;
 
 			if (idx >= 0)
 			{
@@ -204,6 +205,7 @@ public partial class MainPage : ContentPage
 					idx = r[3];
 					SalvarIndiceNoPerfil(idx);
 					pronto = true;
+					registrouNovo = true;
 					Log($"✔ Usuário criado na balança (nº {idx}).");
 				}
 				else
@@ -214,23 +216,28 @@ public partial class MainPage : ContentPage
 
 			if (pronto)
 			{
-				await EscreverPerfil(SEXO_CH, new byte[] { (byte)_ativo.Sexo }, "sexo");
-				await EscreverPerfil(NASC_CH, new byte[]
+				// Só gravamos sexo/nascimento/altura na PRIMEIRA vez (ao registrar).
+				// Nas próximas, a balança já guardou — menos interação, app mais leve.
+				if (registrouNovo)
 				{
-					(byte)(_ativo.AnoNasc & 0xFF), (byte)((_ativo.AnoNasc >> 8) & 0xFF),
-					(byte)_ativo.MesNasc, (byte)_ativo.DiaNasc
-				}, "nascimento");
-				await EscreverPerfil(ALT_CH, new byte[]
-				{
-					(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
-				}, "altura");
+					await EscreverPerfil(SEXO_CH, new byte[] { (byte)_ativo.Sexo }, "sexo");
+					await EscreverPerfil(NASC_CH, new byte[]
+					{
+						(byte)(_ativo.AnoNasc & 0xFF), (byte)((_ativo.AnoNasc >> 8) & 0xFF),
+						(byte)_ativo.MesNasc, (byte)_ativo.DiaNasc
+					}, "nascimento");
+					await EscreverPerfil(ALT_CH, new byte[]
+					{
+						(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
+					}, "altura");
+				}
 
 				// Ajusta o relógio da balança para AGORA: assim a pesagem nova
 				// recebe o carimbo de hora atual e conseguimos diferenciá-la das antigas.
 				await AjustarRelogioAsync();
 
 				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = $"Pronto! A balança deve mostrar U{idx}. SUBA AGORA e fique parado.");
-				Log($"Handshake completo (usuário nº {idx}). Suba AGORA (conexão viva por ~2 min).");
+				Log($"Handshake completo (usuário nº {idx}). Suba AGORA e aguarde a pesagem de agora.");
 				_ = ManterVivoAsync(device);
 			}
 		}
@@ -260,6 +267,15 @@ public partial class MainPage : ContentPage
 				Log("(conexão parece ter caído durante a espera)");
 				return;
 			}
+		}
+
+		// Passaram ~2 min e a pesagem de AGORA não chegou. Encerra mostrando o que veio.
+		if (!_pesagemRecebida)
+		{
+			try { if (_dispositivo != null) await _adapter.DisconnectDeviceAsync(_dispositivo); } catch { }
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = _temPeso
+				? "Não recebi a pesagem de agora. Mostrando a mais recente guardada. Tente pesar de novo."
+				: "Não recebi pesagem. Suba na balança logo após tocar em Pesar.");
 		}
 	}
 
@@ -357,10 +373,14 @@ public partial class MainPage : ContentPage
 
 		if (canal == PESO)
 		{
-			// A balança pode mandar VÁRIAS pesagens guardadas. Ficamos sempre
-			// com a MAIS RECENTE (maior carimbo de hora).
+			// A balança manda a pesagem GUARDADA primeiro e a AO VIVO (bioimpedância)
+			// alguns segundos depois. Como acertamos o relógio, a ao vivo vem carimbada
+			// com ~agora. Ficamos com a MAIS RECENTE e só ENCERRAMOS quando chega a de agora.
 			var tmp = new Medicao();
 			tmp.LerPeso(bytes);
+
+			// "Ao vivo" = carimbo de hora dentro de ~3 min do relógio do celular.
+			bool aoVivo = tmp.Quando.HasValue && Math.Abs((DateTime.Now - tmp.Quando.Value).TotalMinutes) < 3;
 
 			bool maisRecente = !_melhorQuando.HasValue || !tmp.Quando.HasValue
 				|| tmp.Quando.Value >= _melhorQuando.Value;
@@ -373,7 +393,17 @@ public partial class MainPage : ContentPage
 				_temPeso = true;
 				if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
-				AgendarDesconexao();
+			}
+
+			if (aoVivo)
+			{
+				Log("✔ Pesagem de AGORA recebida.");
+				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pesagem de agora recebida! Confira abaixo.");
+				AgendarDesconexao();   // só agora encerramos — pegamos a boa
+			}
+			else
+			{
+				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Recebi uma pesagem guardada. Aguardando a de AGORA (fique na balança)...");
 			}
 		}
 		else if (canal == COMP && _temPeso)

@@ -126,10 +126,14 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   certinho pro Garmin Connect (conferido no app do Garmin). v0.6.2 deixa o envio mais leve:
   **desconecta da balança assim que a pesagem chega** e roda o upload fora da thread da UI
   (o celular travava durante o login do Garmin). 
-- ⚠️ Pendências pequenas: (a) repesar logo em seguida ainda pode trazer a pesagem anterior
-  (a mais recente guardada) — a 1ª pesagem da sessão vem ao vivo, que é o uso principal;
-  (b) faltam decodificar massa óssea, gordura visceral e idade metabólica (não achados nos
-  bytes padrão — provavelmente no canal vendor `ffff`).
+- ✅ **v0.6.3 — ESPERAR A PESAGEM "DE AGORA"**: descoberto (pelo usuário) que a balança
+  manda a pesagem GUARDADA primeiro e a AO VIVO (bioimpedância) alguns segundos depois; a
+  v0.6.2 desconectava 4s após a 1ª (guardada) e cortava a boa. Agora o app **só encerra/
+  desconecta quando chega uma pesagem com carimbo ~agora** (dentro de 3 min do relógio do
+  celular); enquanto isso mostra "aguardando a de agora". Também **não regrava sexo/nasc/
+  altura** ao reaproveitar usuário (menos interação). **PRECISA TESTE.**
+- ⚠️ Pendências pequenas: faltam decodificar massa óssea, gordura visceral e idade
+  metabólica (não achados nos bytes padrão — provavelmente no canal vendor `ffff`).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib
   **YetAnotherGarminConnectClient 0.0.17** (login e-mail+senha, 2FA, upload). Botão
   "Enviar pro Garmin" na tela de resultado usa o login do perfil ativo. Manda peso,
