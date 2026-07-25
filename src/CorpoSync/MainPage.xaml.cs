@@ -34,6 +34,8 @@ public partial class MainPage : ContentPage
 	readonly GarminService _garmin = new();
 	bool _enviando;
 	bool _pesagemRecebida;
+	bool _pesoAgora;               // já chegou o PESO com carimbo de agora
+	DateTime _quandoPesoAgora;     // quando esse peso de agora chegou (p/ esperar a composição)
 
 	public MainPage()
 	{
@@ -111,6 +113,7 @@ public partial class MainPage : ContentPage
 		_temPeso = false;
 		_melhorQuando = null;
 		_pesagemRecebida = false;
+		_pesoAgora = false;
 		ResultadoCard.IsVisible = false;
 		MostrarEnvio(string.Empty);
 		Grade.Children.Clear();
@@ -252,9 +255,16 @@ public partial class MainPage : ContentPage
 	// DATA MAIS NOVA, e encerramos assim que chega a pesagem de agora (ou após ~1 min).
 	async Task LerPesagemAsync(IDevice device)
 	{
-		for (int i = 0; i < 30 && !_pesagemRecebida; i++)
+		for (int i = 0; i < 60 && !_pesagemRecebida; i++)
 		{
-			await Task.Delay(2000);
+			await Task.Delay(1000);
+			if (_pesagemRecebida) break;
+			// Se o PESO de agora já chegou mas a composição demorou > 5s, encerra assim mesmo.
+			if (_pesoAgora && (DateTime.Now - _quandoPesoAgora).TotalSeconds >= 5)
+			{
+				Log("(composição não chegou a tempo; encerrando com o que veio)");
+				break;
+			}
 			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
 			catch { Log("(conexão caiu durante a leitura)"); break; }
 		}
@@ -359,11 +369,13 @@ public partial class MainPage : ContentPage
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
 			}
 
-			// Se a mais nova já é de ~agora, encerramos cedo (não precisa esperar os 8s).
+			// Chegou o PESO de agora. NÃO encerramos ainda: a composição (gordura,
+			// água, músculo) vem num 2º pacote (2a9c) logo depois. Marcamos e esperamos.
 			if (tmp.Quando.HasValue && Math.Abs((DateTime.Now - tmp.Quando.Value).TotalMinutes) < 3)
 			{
-				_pesagemRecebida = true;
-				Log("✔ Pesagem de agora recebida.");
+				if (!_pesoAgora) { _pesoAgora = true; _quandoPesoAgora = DateTime.Now; Log("✔ Peso de agora recebido. Aguardando a composição..."); }
+				// Se a composição já veio antes (raro), pode encerrar.
+				if (_medicao.GorduraPct.HasValue) _pesagemRecebida = true;
 			}
 		}
 		else if (canal == COMP && _temPeso)
@@ -372,6 +384,8 @@ public partial class MainPage : ContentPage
 			if (_medicao.UsuarioId.HasValue) Log($"(esta pesagem é do usuário nº {_medicao.UsuarioId})");
 			if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 			MainThread.BeginInvokeOnMainThread(MostrarResultado);
+			// Já temos PESO de agora + composição: aí sim encerramos.
+			if (_pesoAgora) { _pesagemRecebida = true; Log("✔ Composição de agora recebida."); }
 		}
 	}
 

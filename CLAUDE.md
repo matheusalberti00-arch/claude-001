@@ -159,6 +159,10 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
 - 🔁 **v0.6.7 — Garmin mais robusto**: o envio deu `OAuthToken2IsNull` (instabilidade do
   login Garmin). Agora `GarminService` **tenta até 3x** em falhas passageiras (tokens OAuth
   nulos/CSRF/service ticket), limpa espaços do e-mail/senha e traduz o erro. **PRECISA TESTE.**
+- 🩹 **v0.6.8 — ESPERAR A COMPOSIÇÃO (2a9c)**: quando o usuário pesa ANTES de conectar, a
+  balança manda o PESO (2a9d) e o app encerrava na hora, cortando a composição (só vinha
+  peso+IMC). Agora, ao chegar o peso de agora, o app **marca `_pesoAgora` e espera o pacote
+  de composição** (só encerra quando tem os dois, ou 5s de carência). **PRECISA TESTE.**
 - ⚠️ Pendências: decodificar massa óssea, gordura visceral, idade metabólica — suspeita no
   pacote do canal `fff6` (`05-00-1C-48-...`), que não decodificamos (fica para depois).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib
