@@ -163,8 +163,8 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado. Baixando sua pesagem mais recente...");
-			Log("Conectado. Baixando a pesagem mais recente guardada.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "SUBA AGORA e fique parado ~1 min. Estou gravando o canal secreto da balança.");
+			Log("Conectado. MODO CAPTURA: suba agora; vou registrar tudo (inclusive canais fff) por ~1 min.");
 			_ = BaixarPesagemAsync(device);
 		}
 		catch (Exception ex)
@@ -193,6 +193,11 @@ public partial class MainPage : ContentPage
 		await OuvirAsync(PESO, OnMedicaoRecebida);
 		await OuvirAsync(COMP, OnMedicaoRecebida);
 		await OuvirAsync(DBCHG, OnDbChange);
+
+		// MODO CAPTURA do canal secreto da Beurer (ffff / fff1..fff8): assinamos
+		// todos os canais que "avisam" (notify/indicate) e registramos os bytes crus.
+		foreach (var fff in new[] { "fff1", "fff4", "fff5", "fff6", "fff8" })
+			await OuvirAsync(fff, OnFffData);
 
 		byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
 		byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
@@ -254,11 +259,14 @@ public partial class MainPage : ContentPage
 	// logo ao conectar; ficamos com a de DATA MAIS NOVA e desconectamos.
 	async Task BaixarPesagemAsync(IDevice device)
 	{
-		for (int i = 0; i < 8 && !_pesagemRecebida; i++)
+		// MODO CAPTURA: fica conectado ~1 min (30 × 2s) enquanto você sobe e mede,
+		// registrando tudo (canais padrão E secretos fff). Para antes se chegar
+		// uma pesagem padrão com carimbo de agora.
+		for (int i = 0; i < 30 && !_pesagemRecebida; i++)
 		{
-			await Task.Delay(1000);
+			await Task.Delay(2000);
 			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
-			catch { break; }
+			catch { Log("(conexão caiu durante a captura)"); break; }
 		}
 
 		try { await _adapter.DisconnectDeviceAsync(device); } catch { }
@@ -267,12 +275,12 @@ public partial class MainPage : ContentPage
 		{
 			bool recente = _melhorQuando.HasValue && Math.Abs((DateTime.Now - _melhorQuando.Value).TotalMinutes) < 3;
 			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = recente
-				? "Pesagem baixada! Confira e envie pro Garmin."
-				: "Baixei a mais recente guardada. Se você ACABOU de pesar, espere a balança terminar TUDO e toque em Pesar de novo.");
+				? "Pesagem de agora recebida! Confira e envie pro Garmin."
+				: "Captura concluída. Abra 'Detalhes técnicos' e me mande o print (procuro o CANAL SECRETO).");
 		}
 		else
 		{
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Não achei pesagem. Suba na balança, espere terminar, depois toque em Pesar.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Captura concluída. Abra 'Detalhes técnicos' e me mande o print.");
 		}
 	}
 
@@ -326,6 +334,14 @@ public partial class MainPage : ContentPage
 	{
 		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
 		Log($"Contador 2a99 (a balança avisou pesagem nova): {Hex(bytes)}");
+	}
+
+	// MODO CAPTURA: qualquer coisa que a balança mandar nos canais secretos (fff).
+	void OnFffData(object? sender, CharacteristicUpdatedEventArgs args)
+	{
+		var canal = Curto(args.Characteristic.Id);
+		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
+		Log($"★ CANAL SECRETO {canal}: {Hex(bytes)}");
 	}
 
 	async Task EscreverPerfil(string uuid, byte[] valor, string nome)

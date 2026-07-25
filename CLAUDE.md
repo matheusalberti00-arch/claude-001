@@ -144,8 +144,16 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   ao conectar; o app fica com a de maior carimbo de hora), mostra e desconecta. Removido o
   loop de reconexão e o `AgendarDesconexao`; `FluxoLeituraAsync` virou `BaixarPesagemAsync`
   (coleta ~8s). **PRECISA TESTE.** Se ainda vier antiga, o próximo é o canal vendor `ffff`.
-- ⚠️ Pendências pequenas: faltam decodificar massa óssea, gordura visceral e idade
-  metabólica (não achados nos bytes padrão — provavelmente no canal vendor `ffff`).
+- ❌ v0.6.5 (medir primeiro, baixar depois) FALHOU: log de 14:12 provou que a balança
+  ainda entrega só a de 12:56 mesmo pesando antes; a pesagem nova NÃO é gravada no
+  usuário U3 (pacotes 2a9d/2a9c não trazem user id, então não dá p/ saber onde caiu).
+- 🕵️ **v0.6.6 — MODO CAPTURA DO CANAL SECRETO `fff` (escolha do usuário)**: acesso ao
+  código do openScale está intermitente e não queremos chutar bytes no vendor channel.
+  Então o app agora **conecta, você pesa COM o app conectado, e ele registra no log TUDO
+  dos canais fff1/fff4/fff5/fff6/fff8** (notify/indicate) por ~1 min, além dos padrões.
+  Objetivo: ver se a pesagem "de agora" sai pelo canal secreto e decodificar com dados
+  reais. `OnFffData` loga "★ CANAL SECRETO xxxx: <hex>". **Usuário manda o print do log.**
+- ⚠️ Pendências: decodificar massa óssea, gordura visceral, idade metabólica (idem, fff).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib
   **YetAnotherGarminConnectClient 0.0.17** (login e-mail+senha, 2FA, upload). Botão
   "Enviar pro Garmin" na tela de resultado usa o login do perfil ativo. Manda peso,
