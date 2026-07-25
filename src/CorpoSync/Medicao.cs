@@ -12,6 +12,7 @@ public class Medicao
 	public double? ImpedanciaOhm;
 	public double? ImcCalculado;
 	public DateTime? Quando;   // carimbo de hora que veio dentro da pesagem
+	public int? UsuarioId;     // número do usuário (U?) a que esta pesagem pertence
 
 	// Fator de massa dos campos de composição. Empiricamente 0,1 bateu com o
 	// app oficial (ex.: massa magra 52,7 kg). Ajustável após conferência.
@@ -55,7 +56,7 @@ public class Medicao
 		GorduraPct = U16() * 0.1;            // sempre presente
 
 		if ((flags & 0x0002) != 0) i += 7;   // timestamp
-		if ((flags & 0x0004) != 0) i += 1;   // user id
+		if ((flags & 0x0004) != 0) { UsuarioId = d[i]; i += 1; }   // user id
 		if ((flags & 0x0008) != 0) BasalKcal = U16() / 4.184;   // basal metabolism (kJ→kcal)
 		if ((flags & 0x0010) != 0) MusculoPct = U16() * 0.1;    // muscle %
 		if ((flags & 0x0020) != 0) i += 2;   // muscle mass

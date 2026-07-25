@@ -17,6 +17,8 @@ public partial class MainPage : ContentPage
 	const string SEXO_CH = "2a8c";
 	const string NASC_CH = "2a85";
 	const string ALT_CH = "2a8e";
+	const string DBCHG = "2a99";   // Database Change Increment (contador de pesagem nova)
+	const string RELOGIO = "2a2b"; // Current Time (relógio da balança)
 
 	readonly IBluetoothLE _ble;
 	readonly IAdapter _adapter;
@@ -168,36 +170,43 @@ public partial class MainPage : ContentPage
 			await OuvirAsync(PESO, OnMedicaoRecebida);
 			await OuvirAsync(COMP, OnMedicaoRecebida);
 
+			// Ouve também o contador de "pesagem nova" (2a99) — só para diagnóstico.
+			await OuvirAsync(DBCHG, OnDbChange);
+
 			byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
 			byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
 
-			// TESTE: sempre cria um usuário NOVO (a balança parece só enviar a
-			// leitura ao vivo logo após um registro). Apaga o anterior para não
-			// lotar os 8 espaços da balança.
-			int antigo = _ativo.ScaleUserIndex;
-			if (antigo >= 0)
-			{
-				Log($"Limpando usuário antigo (nº {antigo})...");
-				var rc = await EscreverUcpEsperar(new byte[] { 0x02, (byte)antigo, cLo, cHi }, "Consentir antigo");
-				if (rc != null && rc.Length >= 3 && rc[0] == 0x20 && rc[2] == 0x01)
-					await EscreverUcpEsperar(new byte[] { 0x03 }, "Apagar usuário antigo");
-				SalvarIndiceNoPerfil(-1);
-			}
-
-			int idx = -1;
-			var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
-			if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
-			{
-				idx = r[3];
-				SalvarIndiceNoPerfil(idx);
-				Log($"✔ Usuário criado na balança (nº {idx}).");
-			}
-			else
-			{
-				Log("✖ Não consegui registrar o usuário na balança.");
-			}
+			// IMPORTANTE: NÃO apagamos mais o usuário (o comando de apagar fazia a
+			// balança mostrar "DEL" e não pesar). Em vez disso reaproveitamos o
+			// usuário já salvo (consentindo) e só criamos um novo se não houver.
+			int idx = _ativo.ScaleUserIndex;
+			bool pronto = false;
 
 			if (idx >= 0)
+			{
+				Log($"Usando seu usuário salvo (nº {idx}). Desbloqueando...");
+				var rc = await EscreverUcpEsperar(new byte[] { 0x02, (byte)idx, cLo, cHi }, "Consentir usuário");
+				pronto = rc != null && rc.Length >= 3 && rc[0] == 0x20 && rc[2] == 0x01;
+				if (!pronto) Log("Não deu para desbloquear o usuário salvo (talvez apagado). Vou criar de novo.");
+			}
+
+			if (!pronto)
+			{
+				var r = await EscreverUcpEsperar(new byte[] { 0x01, cLo, cHi }, "Registrar novo usuário");
+				if (r != null && r.Length >= 4 && r[0] == 0x20 && r[2] == 0x01)
+				{
+					idx = r[3];
+					SalvarIndiceNoPerfil(idx);
+					pronto = true;
+					Log($"✔ Usuário criado na balança (nº {idx}).");
+				}
+				else
+				{
+					Log("✖ Não consegui registrar o usuário na balança.");
+				}
+			}
+
+			if (pronto)
 			{
 				await EscreverPerfil(SEXO_CH, new byte[] { (byte)_ativo.Sexo }, "sexo");
 				await EscreverPerfil(NASC_CH, new byte[]
@@ -210,8 +219,12 @@ public partial class MainPage : ContentPage
 					(byte)(_ativo.AlturaCm & 0xFF), (byte)((_ativo.AlturaCm >> 8) & 0xFF)
 				}, "altura");
 
-				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Pronto! SUBA AGORA na balança e fique parado.");
-				Log("Handshake completo! Suba AGORA (mantendo a conexão viva por ~2 min).");
+				// Ajusta o relógio da balança para AGORA: assim a pesagem nova
+				// recebe o carimbo de hora atual e conseguimos diferenciá-la das antigas.
+				await AjustarRelogioAsync();
+
+				MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = $"Pronto! A balança deve mostrar U{idx}. SUBA AGORA e fique parado.");
+				Log($"Handshake completo (usuário nº {idx}). Suba AGORA (conexão viva por ~2 min).");
 				_ = ManterVivoAsync(device);
 			}
 		}
@@ -270,6 +283,30 @@ public partial class MainPage : ContentPage
 		return done == _respostaUcp.Task ? _respostaUcp.Task.Result : null;
 	}
 
+	// Ajusta o relógio da balança (Current Time, 2a2b) para o horário atual.
+	async Task AjustarRelogioAsync()
+	{
+		if (!_canais.TryGetValue(RELOGIO, out var c)) { Log("(relógio 2a2b não achado)"); return; }
+		var n = DateTime.Now;
+		int dow = (int)n.DayOfWeek;            // 0=domingo..6=sábado (.NET)
+		byte bleDow = (byte)(dow == 0 ? 7 : dow); // 1=segunda..7=domingo (Bluetooth)
+		var b = new byte[]
+		{
+			(byte)(n.Year & 0xFF), (byte)((n.Year >> 8) & 0xFF),
+			(byte)n.Month, (byte)n.Day, (byte)n.Hour, (byte)n.Minute, (byte)n.Second,
+			bleDow, 0x00, 0x00
+		};
+		try { c.WriteType = CharacteristicWriteType.WithResponse; await c.WriteAsync(b); Log($"Relógio ajustado p/ agora: {Hex(b)}"); }
+		catch (Exception ex) { Log($"(não deu p/ ajustar o relógio: {ex.Message})"); }
+	}
+
+	// Contador de "pesagem nova" da balança (2a99) — só registramos no log.
+	void OnDbChange(object? sender, CharacteristicUpdatedEventArgs args)
+	{
+		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
+		Log($"Contador 2a99 (a balança avisou pesagem nova): {Hex(bytes)}");
+	}
+
 	async Task EscreverPerfil(string uuid, byte[] valor, string nome)
 	{
 		if (!_canais.TryGetValue(uuid, out var c)) { Log($"(canal de {nome} não achado)"); return; }
@@ -313,6 +350,7 @@ public partial class MainPage : ContentPage
 		else if (canal == COMP && _temPeso)
 		{
 			_medicao.LerComposicao(bytes);
+			if (_medicao.UsuarioId.HasValue) Log($"(esta pesagem é do usuário nº {_medicao.UsuarioId})");
 			if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 			MainThread.BeginInvokeOnMainThread(MostrarResultado);
 		}
