@@ -9,7 +9,7 @@
         <VerticalStackLayout Padding="16" Spacing="12">
 
             <Label Text="Nome" FontSize="13" TextColor="#9E9E9E" />
-            <Entry x:Name="NomeEntry" Placeholder="Ex.: Matheus" PlaceholderColor="#6E6E6E"
+            <Entry x:Name="NomeEntry" Placeholder="Digite um nome para o perfil" PlaceholderColor="#6E6E6E"
                    TextColor="#ECECEC" BackgroundColor="#262626" />
 
             <Label Text="Dados do corpo (a balança usa para calcular)" FontSize="13" TextColor="#9E9E9E" Margin="0,6,0,0" />

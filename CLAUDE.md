@@ -173,9 +173,14 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   pesagem antiga). A hipótese forte: na 6.6 o app ASSINAVA os canais secretos (fff1/fff4/
   fff5/fff6/fff8 + 2a99) — e provavelmente é ISSO que faz a balança soltar a pesagem ao
   vivo (como o app oficial). A 6.7 removeu essas assinaturas e quebrou. Então restauramos
-  MainPage.xaml(.cs) e GarminService.cs EXATAMENTE como na 6.6 (commit 6f5c20a); só subimos
-  o ApplicationVersion p/ 19 (nome fica 0.6.6). Perde-se o Garmin-retry e o esperar-composição
-  (o usuário optou por "6.6 puro"). **Base atual = 6.6.**
+  MainPage.xaml(.cs) e GarminService.cs EXATAMENTE como na 6.6 (commit 6f5c20a). **Base = 6.6.**
+- ✅✅ **v1.0.0 — VERSÃO FINAL (leitura + Garmin CONFIRMADOS pelo usuário)**: em cima da base
+  6.6 (canais secretos assinados = gatilho da leitura ao vivo), só ajustes de front-end,
+  sem tocar na lógica de BLE: texto "Suba na balança e fique parado" (curto); janela de
+  leitura 1min→**2min** (loop 60×2s); **spinner (ActivityIndicator) no envio ao Garmin**;
+  placeholder do nome sem "Matheus"; **disclaimer** (app aberto, não afiliado à Beurer/Garmin)
+  + **créditos** a lswiderski (mi-scale-exporter/YAGCC) e oliexdev (openScale) na tela inicial.
+  Fluxo que funciona: tocar Pesar → subir quando pedir → ficar parado → dados vêm → enviar Garmin.
 - ⚠️ Pendências: decodificar massa óssea, gordura visceral, idade metabólica — suspeita no
   pacote do canal `fff6` (`05-00-1C-48-...`), que não decodificamos (fica para depois).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib

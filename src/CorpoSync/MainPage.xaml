@@ -26,7 +26,7 @@
             <Button x:Name="PesarBtn" Text="Pesar" Clicked="OnPesarClicked"
                     BackgroundColor="#2E9E86" TextColor="White" FontSize="18" HeightRequest="56" />
 
-            <Label x:Name="StatusLabel" Text="1) Suba na balança e espere ela mostrar tudo e desligar. 2) Toque em Pesar para baixar."
+            <Label x:Name="StatusLabel" Text="Escolha um perfil, toque em Pesar e suba na balança quando pedir."
                    FontSize="14" TextColor="#BDBDBD" />
 
             <!-- Resultado -->
@@ -46,7 +46,11 @@
 
                     <Button x:Name="EnviarBtn" Text="Enviar pro Garmin" Clicked="OnEnviarGarminClicked"
                             BackgroundColor="#2E9E86" TextColor="White" FontSize="16" HeightRequest="52" Margin="0,8,0,0" />
-                    <Label x:Name="EnvioLabel" Text="" FontSize="13" TextColor="#9E9E9E" IsVisible="False" />
+                    <HorizontalStackLayout Spacing="8">
+                        <ActivityIndicator x:Name="EnvioSpinner" IsRunning="False" IsVisible="False"
+                                           Color="#35C99A" WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
+                        <Label x:Name="EnvioLabel" Text="" FontSize="13" TextColor="#9E9E9E" IsVisible="False" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
             </Border>
 
@@ -59,6 +63,15 @@
                     <Label x:Name="LogLabel" FontFamily="Monospace" FontSize="11" TextColor="#B8B8B8" />
                 </ScrollView>
             </Border>
+
+            <!-- Sobre / aviso -->
+            <BoxView HeightRequest="1" Color="#242424" Margin="0,10,0,0" />
+            <Label Text="Sobre o CorpoSync"
+                   FontSize="12" FontAttributes="Bold" TextColor="#9E9E9E" Margin="0,4,0,0" />
+            <Label Text="Aplicativo aberto (código livre) que envia automaticamente as medições da balança Beurer BF451 para o Garmin Connect. Projeto pessoal, sem fins lucrativos. Não é afiliado, patrocinado nem endossado pela Beurer ou pelo Garmin — essas marcas pertencem aos seus donos."
+                   FontSize="11" TextColor="#7A7A7A" />
+            <Label Text="Feito com base no projeto mi-scale-exporter e na biblioteca YetAnotherGarminConnectClient, de Łukasz Świderski (lswiderski), e no openScale (oliexdev) para o protocolo da balança. Muito obrigado a esses desenvolvedores! 🙏"
+                   FontSize="11" TextColor="#7A7A7A" Margin="0,0,0,8" />
 
         </VerticalStackLayout>
     </ScrollView>

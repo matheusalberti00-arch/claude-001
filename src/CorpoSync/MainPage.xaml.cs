@@ -163,8 +163,8 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "SUBA AGORA e fique parado ~1 min. Estou gravando o canal secreto da balança.");
-			Log("Conectado. MODO CAPTURA: suba agora; vou registrar tudo (inclusive canais fff) por ~1 min.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Suba na balança e fique parado.");
+			Log("Conectado. Suba na balança e fique parado; lendo a pesagem...");
 			_ = BaixarPesagemAsync(device);
 		}
 		catch (Exception ex)
@@ -259,14 +259,14 @@ public partial class MainPage : ContentPage
 	// logo ao conectar; ficamos com a de DATA MAIS NOVA e desconectamos.
 	async Task BaixarPesagemAsync(IDevice device)
 	{
-		// MODO CAPTURA: fica conectado ~1 min (30 × 2s) enquanto você sobe e mede,
-		// registrando tudo (canais padrão E secretos fff). Para antes se chegar
-		// uma pesagem padrão com carimbo de agora.
-		for (int i = 0; i < 30 && !_pesagemRecebida; i++)
+		// Fica conectado ~2 min (60 × 2s) enquanto você sobe e mede. A balança
+		// vai mandando as pesagens; ficamos com a de DATA MAIS NOVA e paramos assim
+		// que chega uma com carimbo de agora.
+		for (int i = 0; i < 60 && !_pesagemRecebida; i++)
 		{
 			await Task.Delay(2000);
 			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
-			catch { Log("(conexão caiu durante a captura)"); break; }
+			catch { Log("(conexão caiu durante a leitura)"); break; }
 		}
 
 		try { await _adapter.DisconnectDeviceAsync(device); } catch { }
@@ -275,12 +275,12 @@ public partial class MainPage : ContentPage
 		{
 			bool recente = _melhorQuando.HasValue && Math.Abs((DateTime.Now - _melhorQuando.Value).TotalMinutes) < 3;
 			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = recente
-				? "Pesagem de agora recebida! Confira e envie pro Garmin."
-				: "Captura concluída. Abra 'Detalhes técnicos' e me mande o print (procuro o CANAL SECRETO).");
+				? "Pesagem recebida! Confira e envie pro Garmin."
+				: "Recebi uma pesagem guardada. Suba e fique parado até a de agora, ou tente de novo.");
 		}
 		else
 		{
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Captura concluída. Abra 'Detalhes técnicos' e me mande o print.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Não recebi pesagem. Toque em Pesar e suba na balança.");
 		}
 	}
 
@@ -474,6 +474,8 @@ public partial class MainPage : ContentPage
 		_enviando = true;
 		EnviarBtn.IsEnabled = false;
 		EnviarBtn.Text = "Enviando...";
+		EnvioSpinner.IsVisible = true;
+		EnvioSpinner.IsRunning = true;
 		MostrarEnvio("Entrando na sua conta do Garmin e enviando...");
 
 		try
@@ -516,6 +518,8 @@ public partial class MainPage : ContentPage
 			_enviando = false;
 			EnviarBtn.IsEnabled = true;
 			EnviarBtn.Text = "Enviar pro Garmin";
+			EnvioSpinner.IsRunning = false;
+			EnvioSpinner.IsVisible = false;
 		}
 	}
 
