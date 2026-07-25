@@ -168,7 +168,14 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   Agora o status diz claramente **"Recebi uma GUARDADA (antiga). Fique parado até a de
   AGORA..."** e só mostra "de agora" quando o carimbo é ~agora. Reforçada a instrução de
   **ficar em cima da balança até terminar**. Lembrete-chave: a pesagem NOVA só é capturada
-  se o usuário subir DEPOIS de tocar em Pesar (app conectado) e ficar parado ~15s. **TESTE.**
+  se o usuário subir DEPOIS de tocar em Pesar (app conectado) e ficar parado ~15s.
+- ⏪ **ROLLBACK PARA 0.6.6 (a pedido do usuário)**: da 6.7 à 6.9 a leitura piorou (só vinha
+  pesagem antiga). A hipótese forte: na 6.6 o app ASSINAVA os canais secretos (fff1/fff4/
+  fff5/fff6/fff8 + 2a99) — e provavelmente é ISSO que faz a balança soltar a pesagem ao
+  vivo (como o app oficial). A 6.7 removeu essas assinaturas e quebrou. Então restauramos
+  MainPage.xaml(.cs) e GarminService.cs EXATAMENTE como na 6.6 (commit 6f5c20a); só subimos
+  o ApplicationVersion p/ 19 (nome fica 0.6.6). Perde-se o Garmin-retry e o esperar-composição
+  (o usuário optou por "6.6 puro"). **Base atual = 6.6.**
 - ⚠️ Pendências: decodificar massa óssea, gordura visceral, idade metabólica — suspeita no
   pacote do canal `fff6` (`05-00-1C-48-...`), que não decodificamos (fica para depois).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib

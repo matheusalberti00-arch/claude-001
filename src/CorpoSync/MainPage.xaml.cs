@@ -17,6 +17,7 @@ public partial class MainPage : ContentPage
 	const string SEXO_CH = "2a8c";
 	const string NASC_CH = "2a85";
 	const string ALT_CH = "2a8e";
+	const string DBCHG = "2a99";   // Database Change Increment (contador de pesagem nova)
 	const string RELOGIO = "2a2b"; // Current Time (relógio da balança)
 
 	readonly IBluetoothLE _ble;
@@ -34,8 +35,6 @@ public partial class MainPage : ContentPage
 	readonly GarminService _garmin = new();
 	bool _enviando;
 	bool _pesagemRecebida;
-	bool _pesoAgora;               // já chegou o PESO com carimbo de agora
-	DateTime _quandoPesoAgora;     // quando esse peso de agora chegou (p/ esperar a composição)
 
 	public MainPage()
 	{
@@ -113,7 +112,6 @@ public partial class MainPage : ContentPage
 		_temPeso = false;
 		_melhorQuando = null;
 		_pesagemRecebida = false;
-		_pesoAgora = false;
 		ResultadoCard.IsVisible = false;
 		MostrarEnvio(string.Empty);
 		Grade.Children.Clear();
@@ -165,9 +163,9 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado! SUBA AGORA e fique parado até a balança terminar TUDO (não desça cedo).");
-			Log("Conectado. Suba agora e fique parado; vou ler até chegar na pesagem de agora.");
-			_ = LerPesagemAsync(device);
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "SUBA AGORA e fique parado ~1 min. Estou gravando o canal secreto da balança.");
+			Log("Conectado. MODO CAPTURA: suba agora; vou registrar tudo (inclusive canais fff) por ~1 min.");
+			_ = BaixarPesagemAsync(device);
 		}
 		catch (Exception ex)
 		{
@@ -194,6 +192,12 @@ public partial class MainPage : ContentPage
 		await OuvirAsync(UCP, OnUcpAtualizado);
 		await OuvirAsync(PESO, OnMedicaoRecebida);
 		await OuvirAsync(COMP, OnMedicaoRecebida);
+		await OuvirAsync(DBCHG, OnDbChange);
+
+		// MODO CAPTURA do canal secreto da Beurer (ffff / fff1..fff8): assinamos
+		// todos os canais que "avisam" (notify/indicate) e registramos os bytes crus.
+		foreach (var fff in new[] { "fff1", "fff4", "fff5", "fff6", "fff8" })
+			await OuvirAsync(fff, OnFffData);
 
 		byte cLo = (byte)(CODIGO_CONSENTIMENTO & 0xFF);
 		byte cHi = (byte)((CODIGO_CONSENTIMENTO >> 8) & 0xFF);
@@ -250,23 +254,19 @@ public partial class MainPage : ContentPage
 		return true;
 	}
 
-	// A balança "desfila" as pesagens guardadas ao conectar, das antigas para as
-	// novas. Ficamos conectados enquanto você sobe e mede, sempre guardando a de
-	// DATA MAIS NOVA, e encerramos assim que chega a pesagem de agora (ou após ~1 min).
-	async Task LerPesagemAsync(IDevice device)
+	// Fluxo "meça primeiro": a pesagem já foi feita e guardada na balança.
+	// Aqui só BAIXAMOS a mais recente — a balança despeja as pesagens guardadas
+	// logo ao conectar; ficamos com a de DATA MAIS NOVA e desconectamos.
+	async Task BaixarPesagemAsync(IDevice device)
 	{
-		for (int i = 0; i < 60 && !_pesagemRecebida; i++)
+		// MODO CAPTURA: fica conectado ~1 min (30 × 2s) enquanto você sobe e mede,
+		// registrando tudo (canais padrão E secretos fff). Para antes se chegar
+		// uma pesagem padrão com carimbo de agora.
+		for (int i = 0; i < 30 && !_pesagemRecebida; i++)
 		{
-			await Task.Delay(1000);
-			if (_pesagemRecebida) break;
-			// Se o PESO de agora já chegou mas a composição demorou > 5s, encerra assim mesmo.
-			if (_pesoAgora && (DateTime.Now - _quandoPesoAgora).TotalSeconds >= 5)
-			{
-				Log("(composição não chegou a tempo; encerrando com o que veio)");
-				break;
-			}
+			await Task.Delay(2000);
 			try { if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead) await bat.ReadAsync(); }
-			catch { Log("(conexão caiu durante a leitura)"); break; }
+			catch { Log("(conexão caiu durante a captura)"); break; }
 		}
 
 		try { await _adapter.DisconnectDeviceAsync(device); } catch { }
@@ -276,11 +276,11 @@ public partial class MainPage : ContentPage
 			bool recente = _melhorQuando.HasValue && Math.Abs((DateTime.Now - _melhorQuando.Value).TotalMinutes) < 3;
 			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = recente
 				? "Pesagem de agora recebida! Confira e envie pro Garmin."
-				: "Só veio a mais recente guardada. Suba, espere a balança terminar e toque em Pesar de novo.");
+				: "Captura concluída. Abra 'Detalhes técnicos' e me mande o print (procuro o CANAL SECRETO).");
 		}
 		else
 		{
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Não recebi pesagem. Toque em Pesar e suba na balança logo em seguida.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Captura concluída. Abra 'Detalhes técnicos' e me mande o print.");
 		}
 	}
 
@@ -329,6 +329,21 @@ public partial class MainPage : ContentPage
 		catch (Exception ex) { Log($"(não deu p/ ajustar o relógio: {ex.Message})"); }
 	}
 
+	// Contador de "pesagem nova" da balança (2a99) — só registramos no log.
+	void OnDbChange(object? sender, CharacteristicUpdatedEventArgs args)
+	{
+		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
+		Log($"Contador 2a99 (a balança avisou pesagem nova): {Hex(bytes)}");
+	}
+
+	// MODO CAPTURA: qualquer coisa que a balança mandar nos canais secretos (fff).
+	void OnFffData(object? sender, CharacteristicUpdatedEventArgs args)
+	{
+		var canal = Curto(args.Characteristic.Id);
+		var bytes = args.Characteristic.Value ?? Array.Empty<byte>();
+		Log($"★ CANAL SECRETO {canal}: {Hex(bytes)}");
+	}
+
 	async Task EscreverPerfil(string uuid, byte[] valor, string nome)
 	{
 		if (!_canais.TryGetValue(uuid, out var c)) { Log($"(canal de {nome} não achado)"); return; }
@@ -369,13 +384,11 @@ public partial class MainPage : ContentPage
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
 			}
 
-			// Chegou o PESO de agora. NÃO encerramos ainda: a composição (gordura,
-			// água, músculo) vem num 2º pacote (2a9c) logo depois. Marcamos e esperamos.
+			// Se a mais nova já é de ~agora, encerramos cedo (não precisa esperar os 8s).
 			if (tmp.Quando.HasValue && Math.Abs((DateTime.Now - tmp.Quando.Value).TotalMinutes) < 3)
 			{
-				if (!_pesoAgora) { _pesoAgora = true; _quandoPesoAgora = DateTime.Now; Log("✔ Peso de agora recebido. Aguardando a composição..."); }
-				// Se a composição já veio antes (raro), pode encerrar.
-				if (_medicao.GorduraPct.HasValue) _pesagemRecebida = true;
+				_pesagemRecebida = true;
+				Log("✔ Pesagem de agora recebida.");
 			}
 		}
 		else if (canal == COMP && _temPeso)
@@ -384,8 +397,6 @@ public partial class MainPage : ContentPage
 			if (_medicao.UsuarioId.HasValue) Log($"(esta pesagem é do usuário nº {_medicao.UsuarioId})");
 			if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 			MainThread.BeginInvokeOnMainThread(MostrarResultado);
-			// Já temos PESO de agora + composição: aí sim encerramos.
-			if (_pesoAgora) { _pesagemRecebida = true; Log("✔ Composição de agora recebida."); }
 		}
 	}
 
@@ -394,12 +405,7 @@ public partial class MainPage : ContentPage
 		if (!_medicao.TemAlgo) return;
 
 		ResultadoCard.IsVisible = true;
-
-		// Deixa claro se é a de AGORA ou uma guardada (ainda esperando a de agora).
-		bool ehAgora = _melhorQuando.HasValue && (DateTime.Now - _melhorQuando.Value).TotalMinutes < 3;
-		StatusLabel.Text = ehAgora
-			? "Pesagem de agora recebida! Confira e envie pro Garmin."
-			: "Recebi uma pesagem GUARDADA (antiga). Fique parado na balança até chegar a de AGORA...";
+		StatusLabel.Text = "Medição recebida! Confira abaixo.";
 
 		PesoLabel.Text = _medicao.PesoKg.HasValue ? Num(_medicao.PesoKg.Value, 1) : "--";
 
