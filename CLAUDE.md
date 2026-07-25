@@ -116,10 +116,20 @@ ouvir 2a9d/2a9c. Isso é a Etapa 3 (em teste com o usuário).
   (2a9c). Decodificação conferida com o print oficial (peso, BMR ~1577, massa magra 52,7).
 - ✅ **Etapa 4 (tela bonita + perfis)**: tema escuro; "perfis favoritos" (dados do corpo +
   login Garmin) com CRUD; começa do zero (sem perfil "Eu"); mostra resultado em blocos.
-- 🔬 **v0.5.3 — EXPERIMENTO DE LEITURA (aguarda teste na balança)**: a balança reenviava
-  sempre a MESMA pesagem antiga (guardada), não a ao vivo. Teoria: só solta a leitura
-  nova logo após registrar um usuário SEM histórico. Então agora **apaga o usuário antigo
-  (UCP 0x03) e cria um novo a cada pesagem**. Build verde (run #15). **PRECISA TESTE.**
+- ❌ v0.5.3 (apagar+recriar usuário) FALHOU: o comando de apagar (UCP 0x03) fazia a
+  balança mostrar "DEL" e NÃO pesar; ao subir de novo ela atribuía U1 ≠ do app (U3).
+- ✅ **v0.6.1 — LEITURA AO VIVO RESOLVIDA**: removido o "apagar"; agora **reaproveita o
+  usuário salvo (consentir 0x02)** e só registra novo se não houver; **ajusta o relógio
+  (2a2b)** ao pesar; loga o usuário da pesagem (2a9c user id) e o contador 2a99.
+  **CONFIRMADO pelo usuário:** pesou ao vivo (12:56, valor de agora) e a composição veio.
+- ✅ **v0.6.0/0.6.2 — ENVIO PRO GARMIN CONFIRMADO**: enviou peso/IMC/gordura/água/músculo
+  certinho pro Garmin Connect (conferido no app do Garmin). v0.6.2 deixa o envio mais leve:
+  **desconecta da balança assim que a pesagem chega** e roda o upload fora da thread da UI
+  (o celular travava durante o login do Garmin). 
+- ⚠️ Pendências pequenas: (a) repesar logo em seguida ainda pode trazer a pesagem anterior
+  (a mais recente guardada) — a 1ª pesagem da sessão vem ao vivo, que é o uso principal;
+  (b) faltam decodificar massa óssea, gordura visceral e idade metabólica (não achados nos
+  bytes padrão — provavelmente no canal vendor `ffff`).
 - ✅ **Etapa 5 (envio pro Garmin) — v0.6.0**: `GarminService.cs` usando a lib
   **YetAnotherGarminConnectClient 0.0.17** (login e-mail+senha, 2FA, upload). Botão
   "Enviar pro Garmin" na tela de resultado usa o login do perfil ativo. Manda peso,

@@ -34,6 +34,9 @@ public partial class MainPage : ContentPage
 	Medicao _medicao = new();
 	readonly GarminService _garmin = new();
 	bool _enviando;
+	IDevice? _dispositivo;
+	bool _pesagemRecebida;
+	bool _desconexaoAgendada;
 
 	public MainPage()
 	{
@@ -110,6 +113,8 @@ public partial class MainPage : ContentPage
 		_medicao = new Medicao();
 		_temPeso = false;
 		_melhorQuando = null;
+		_pesagemRecebida = false;
+		_desconexaoAgendada = false;
 		ResultadoCard.IsVisible = false;
 		MostrarEnvio(string.Empty);
 		Grade.Children.Clear();
@@ -159,6 +164,7 @@ public partial class MainPage : ContentPage
 		{
 			await _adapter.StopScanningForDevicesAsync();
 			await _adapter.ConnectToDeviceAsync(device);
+			_dispositivo = device;
 			Log("Conectado. Preparando os canais...");
 
 			var services = await device.GetServicesAsync();
@@ -236,12 +242,14 @@ public partial class MainPage : ContentPage
 
 	// Mantém a conexão ativa (lendo a bateria de tempos em tempos) enquanto
 	// espera você subir na balança — evita que o Bluetooth solte a conexão.
+	// Para assim que a pesagem chega (aí desconectamos para o app ficar leve).
 	async Task ManterVivoAsync(IDevice device)
 	{
-		// Mantém a conexão viva por ~2 min para receber pesagens (guardadas ou ao vivo).
 		for (int i = 0; i < 40; i++)
 		{
+			if (_pesagemRecebida) return;   // já recebemos: não precisa mais segurar a conexão
 			await Task.Delay(3000);
+			if (_pesagemRecebida) return;
 			try
 			{
 				if (_canais.TryGetValue("2a19", out var bat) && bat.CanRead)
@@ -253,6 +261,26 @@ public partial class MainPage : ContentPage
 				return;
 			}
 		}
+	}
+
+	// Assim que a pesagem chega, esperamos alguns segundos (para a composição
+	// também chegar) e desconectamos da balança — deixa o app leve e livre para
+	// enviar ao Garmin sem travar.
+	void AgendarDesconexao()
+	{
+		if (_desconexaoAgendada) return;
+		_desconexaoAgendada = true;
+		_ = Task.Run(async () =>
+		{
+			await Task.Delay(4000);
+			_pesagemRecebida = true;
+			try
+			{
+				if (_dispositivo != null) await _adapter.DisconnectDeviceAsync(_dispositivo);
+				Log("Pesagem recebida — desconectei da balança (app leve para enviar).");
+			}
+			catch { }
+		});
 	}
 
 	void SalvarIndiceNoPerfil(int idx)
@@ -345,6 +373,7 @@ public partial class MainPage : ContentPage
 				_temPeso = true;
 				if (_ativo != null) _medicao.CalcularImc(_ativo.AlturaCm);
 				MainThread.BeginInvokeOnMainThread(MostrarResultado);
+				AgendarDesconexao();
 			}
 		}
 		else if (canal == COMP && _temPeso)
@@ -434,7 +463,10 @@ public partial class MainPage : ContentPage
 
 		try
 		{
-			var r = await _garmin.EnviarAsync(_medicao, _ativo, _ativo.GarminEmail, senha);
+			// Roda o envio FORA da thread da tela para o app não travar durante o
+			// login do Garmin (que é pesado).
+			var med = _medicao; var perfil = _ativo; var email = _ativo.GarminEmail;
+			var r = await Task.Run(() => _garmin.EnviarAsync(med, perfil, email, senha));
 
 			// Se o Garmin pedir código de verificação (2FA), pergunta e tenta de novo.
 			while (r.PrecisaCodigo)
@@ -449,7 +481,8 @@ public partial class MainPage : ContentPage
 					return;
 				}
 				MostrarEnvio("Conferindo o código e enviando...");
-				r = await _garmin.EnviarAsync(_medicao, _ativo, _ativo.GarminEmail, senha, codigo.Trim());
+				var cod = codigo.Trim();
+				r = await Task.Run(() => _garmin.EnviarAsync(med, perfil, email, senha, cod));
 			}
 
 			MostrarEnvio(r.Mensagem);
