@@ -165,8 +165,8 @@ public partial class MainPage : ContentPage
 			bool ok = await ConectarEPrepararAsync(device);
 			if (!ok) return;
 
-			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado. SUBA AGORA e fique parado na balança.");
-			Log("Conectado. Suba agora; vou ler até chegar na pesagem de agora.");
+			MainThread.BeginInvokeOnMainThread(() => StatusLabel.Text = "Conectado! SUBA AGORA e fique parado até a balança terminar TUDO (não desça cedo).");
+			Log("Conectado. Suba agora e fique parado; vou ler até chegar na pesagem de agora.");
 			_ = LerPesagemAsync(device);
 		}
 		catch (Exception ex)
@@ -394,7 +394,12 @@ public partial class MainPage : ContentPage
 		if (!_medicao.TemAlgo) return;
 
 		ResultadoCard.IsVisible = true;
-		StatusLabel.Text = "Medição recebida! Confira abaixo.";
+
+		// Deixa claro se é a de AGORA ou uma guardada (ainda esperando a de agora).
+		bool ehAgora = _melhorQuando.HasValue && (DateTime.Now - _melhorQuando.Value).TotalMinutes < 3;
+		StatusLabel.Text = ehAgora
+			? "Pesagem de agora recebida! Confira e envie pro Garmin."
+			: "Recebi uma pesagem GUARDADA (antiga). Fique parado na balança até chegar a de AGORA...";
 
 		PesoLabel.Text = _medicao.PesoKg.HasValue ? Num(_medicao.PesoKg.Value, 1) : "--";
 
